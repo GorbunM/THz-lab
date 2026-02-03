@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WaveCalc</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            width: 350px;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .input-group label { min-width: 100px; }
+        .input-group input, .input-group select {
+            width: 70px;
+            padding: 8px;
+            text-align: right;
+        }
+        .unit { width: 40px; display: inline-block; }
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .clear-button { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>WaveCalc</h2>
+
+```
+<div class="input-group"><label>Wavelength:</label>
+    <input id="lambda"><select id="lambdaPrefix"></select><span class="unit">m</span></div>
+<div class="input-group"><label>Frequency:</label>
+    <input id="f"><select id="fPrefix"></select><span class="unit">Hz</span></div>
+<div class="input-group"><label>Angular freq:</label>
+    <input id="omega"><select id="omegaPrefix"></select><span class="unit">rad/s</span></div>
+<div class="input-group"><label>Wavenumber:</label>
+    <input id="k"><span class="unit">cm⁻¹</span>
+    <select id="kMode"><option value="2pi">2π/λ</option><option value="plain">1/λ</option></select></div>
+<div class="input-group"><label>Period:</label>
+    <input id="T"><select id="TPrefix"></select><span class="unit">s</span></div>
+<div class="input-group"><label>Energy:</label>
+    <input id="E"><select id="EPrefix"></select><span class="unit">eV</span></div>    <button onclick="calculateValues()">Calculate</button>
+<button class="clear-button" onclick="clearFields()">Clear</button>
+```
+
+</div>
+
+<script>
+const c = 299792458;
+const h = 6.62607015e-34;
+const q = 1.602176634e-19;
+
+let activeField = null;
+
+const prefixes = [
+    // SI prefixes
+    { factor: 1e-15, symbol: "f" },
+    { factor: 1e-12, symbol: "p" },
+    { factor: 1e-9,  symbol: "n" },
+    { factor: 1e-6,  symbol: "µ" },
+    { factor: 1e-3,  symbol: "m" },
+    { factor: 1,     symbol: ""  },
+    { factor: 1e3,   symbol: "k" },
+    { factor: 1e6,   symbol: "M" },
+    { factor: 1e9,   symbol: "G" },
+    { factor: 1e12,  symbol: "T" },
+    { factor: 1e15,  symbol: "P" }
+];
+
+function populatePrefixes() {
+    ["lambdaPrefix","fPrefix","omegaPrefix","TPrefix","EPrefix"].forEach(id => {
+        const s = document.getElementById(id);
+        prefixes.forEach(p => {
+            const o = document.createElement("option");
+            o.value = p.factor;
+            o.textContent = p.symbol;
+            s.appendChild(o);
+        });
+        s.value = 1;
+    });
+}
+
+function lockFields(except) {
+    ["lambda","f","k","T","E"].forEach(id => {
+        document.getElementById(id).disabled = (id !== except);
+    });
+}
+
+function unlockFields() {
+    ["lambda","f","k","T","E"].forEach(id => {
+        document.getElementById(id).disabled = false;
+    });
+    activeField = null;
+}
+
+function clearFields() {
+    ["lambda","f","k","T","E"].forEach(id => {
+        document.getElementById(id).value = "";
+    });
+    unlockFields();
+}
+
+function adjustPrefix(v) {
+    if (!v) return prefixes[5];
+    const e = Math.floor(Math.log10(Math.abs(v)));
+    return prefixes.reduce((a,b)=>Math.abs(Math.log10(b.factor)-e)<Math.abs(Math.log10(a.factor)-e)?b:a);
+}
+
+function setValue(id,pid,v) {
+    if (v==null) return;
+    const p = adjustPrefix(v);
+    document.getElementById(pid).value = p.factor;
+    document.getElementById(id).value = (v/p.factor).toPrecision(4);
+}
+
+function getValue(id,pid) {
+    const v = parseFloat(document.getElementById(id).value);
+    if (isNaN(v)) return null;
+    if (id==="k") return v * 100; // cm⁻¹ → m⁻¹
+    return v * parseFloat(document.getElementById(pid).value);
+}
+
+function calculateValues() {
+    let lambda=null,f=null,omega=null,k=null,T=null,E=null;
+
+    if (activeField==="lambda") lambda=getValue('lambda','lambdaPrefix');
+    if (activeField==="f")      f     =getValue('f','fPrefix');
+    if (activeField==="omega")  omega =getValue('omega','omegaPrefix');
+    if (activeField==="k")      k     =getValue('k','kPrefix');
+    if (activeField==="T")      T     =getValue('T','TPrefix');
+    if (activeField==="E")      E     =getValue('E','EPrefix');
+
+    if (omega!==null) f = omega/(2*Math.PI);
+    if (E!==null)     f = (E*q)/h;
+
+    if (f!==null) {
+        lambda = c/f;
+        T = 1/f;
+        omega = 2*Math.PI*f;
+        E = h*f/q;
+    } else if (lambda!==null) {
+        f = c/lambda;
+        T = 1/f;
+        omega = 2*Math.PI*f;
+        E = h*f/q;
+    } else if (k!==null) {
+        const mode = document.getElementById('kMode').value;
+        lambda = mode==='2pi' ? 2*Math.PI/k : 1/k;
+        f = c/lambda;
+        T = 1/f;
+        omega = 2*Math.PI*f;
+        E = h*f/q;
+    } else if (T!==null) {
+        f = 1/T;
+        lambda = c/f;
+        omega = 2*Math.PI*f;
+        E = h*f/q;
+    }
+
+    setValue('lambda','lambdaPrefix',lambda);
+    setValue('f','fPrefix',f);
+    setValue('omega','omegaPrefix',omega);
+    document.getElementById('k').value = ((document.getElementById('kMode').value==='2pi' ? 2*Math.PI/lambda : 1/lambda)/100).toPrecision(4);
+    setValue('T','TPrefix',T);
+    setValue('E','EPrefix',E);
+}
+
+populatePrefixes();
+
+["lambda","f","k","T","E"].forEach(id=>{
+    document.getElementById(id).addEventListener("input",()=>{
+        activeField=id;
+        lockFields(id);
+    });
+});
+</script>
+
+</body>
+</html>
