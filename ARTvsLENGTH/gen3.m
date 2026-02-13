@@ -4,8 +4,8 @@ c = 29979245800; % speed of light in cm/s
 
 %% 2. Frequency range
 
-npt = 500;
-nu = linspace(1e11, 2e13, npt);  % frequency in Hz
+npt = 2000;
+nu = linspace(1e11, 1e13, npt);  % frequency in Hz
 % nu = 2e12;
 omega = 2*pi*nu;  % angular frequency in rad/s
 
@@ -16,37 +16,52 @@ omega = 2*pi*nu;  % angular frequency in rad/s
 %              2 -- Lorenz
 %              3 -- Drude + Lorenz 
 
+% Layer types: -1 -- given
+%               0 -- air/vacuum
+%               1 -- Drude
+%               2 -- Lorenz
+%               3 -- Drude + Lorenz 
+
 % Layer templates:
+   
+    % Given = struct('type', -1, ...
+    %              'd', 2e-3, ...
+    %              'n0', 0, ...
+    %              'eps1', [eps1A, eps1B], ...
+    %              'eps2', [eps2A, eps2B], ...
+    %              'omega', omega);
+
+    % Air = struct('type', 0, ...
+    %              'd', 1, ...
+    %              'n0', 1);
+
     % DrudeLayer = struct('type', 1, ...
     %                     'd', 1e-4, ...
     %                     'n0', 1, ...
     %                     'omega_p', 2*pi*2e14, ...
-    %                     'tau', 2*pi*1e13);
-    % 
+    %                     'tauD', 2*pi*1e13);
+    
     % LorentzLayer = struct('type', 2, ...
     %                       'd', 5e-5, ...
     %                       'n0', 1, ...
     %                       'omega_p', 2*pi*1e14, ...
-    %                       'tau', 2*pi*1e13, ...
-    %                       'omega_0', 2*pi*1.5e14);
-    %
+    %                       'tau', [2*pi*1e13, 2*pi*5e12], ...
+    %                       'omega_0', [2*pi*1.5e14, 2*pi*1.2e14]);
+
     % DrudeLorentzLayer = struct('type', 3, ...
-    %                       'd', 5e-5, ...
-    %                       'n0', 1, ...
-    %                       'omega_p', 2*pi*1e14, ...
-    %                       'tau', 2*pi*1e13, ...
-    %                       'omega_0', 2*pi*1.5e14);
-    %
-    % DrudeLorentzLayer = struct('type', 31, ...
-    %                       'd', 5e-5, ...
-    %                       'n0', 1, ...
-    %                       'omega_p', 2*pi*1e14, ...
-    %                       'tau', 2*pi*1e13, ...
-    %                       'omega_0', 2*pi*1.5e14);
+    %                         'd', 1e-4, ...
+    %                         'n0', sqrt(3.85), ...
+    %                         'omega_p', 4.5e13, ...
+    %                         'tauD', 1 / 3.9e12, ...
+    %                         'tau', 1 / 3.9e12, ...
+    %                         'omega_0', 7.55e13);
+
 % thcEXP = [1e-4, 5e-4, 1e-3, 2e-3, 3e-3];
-thcEXP = linspace(1e-6, 3e-5, 100);
-refl = zeros(npt, length(thcEXP));
-trans = zeros(npt, length(thcEXP));
+thcEXP = linspace(1e-4, 3e-3, 100);
+refl = zeros(npt, numel(thcEXP));
+trans = zeros(npt, numel(thcEXP));
+d_layers = zeros(5, numel(thcEXP));
+
 for jj = 1:length(thcEXP)
     Air = struct('type', 0, ...
                  'd', 1, ...
@@ -55,62 +70,73 @@ for jj = 1:length(thcEXP)
                  'tau', 0, ...
                  'omega_0', 0);
     
-    Si3N4 = struct('type', 2, ...
-                'd', thcEXP(jj)*1e2, ...
+    Si3N4 = struct('type', 3, ...
+                'd', 3e-5, ...
                 'n0', sqrt(3.85), ...
-                'omega_p', 4.5e13, ...
+                'omega_p', 3e15, ...
+                'tauD', 1 / 3.9e14, ...
                 'tau', 1 / 3.9e12, ...
                 'omega_0', 7.55e13);
-    % disp(Si3N4.d)
     
     Au = struct('type', 1, ...
-                'd', 2e-4, ...
+                'd', 5e-5, ...
                 'n0', 1, ...
                 'omega_p', sqrt(4*pi*9e9*5e7*1e19), ...
-                'tau', 1e-19);
+                'tauD', 1e-19);
     
-    Null = struct('type', 1, ...
-                'd', 2e-6, ...
-                'n0', 0, ...
+    Si = struct('type', 1, ...
+                'd', thcEXP(jj), ...
+                'n0', 3.5, ...
                 'omega_p', 0, ...
-                'tau', 1e-19);
-    
+                'tauD', 1, ...
+                'tau', 1, ...
+                'omega_0', 1);
     
     
     %Layer 3 gold
     % tauL3=1e-19; thcL3=2*1e-6; sig00L3=1; n03=1;
     
     %% 4. Stack construction
-    
-    structure = {Air, Si3N4, Au, Air};
+
+    % structure = {Air, Si3N4, Air};
+    structure = {Air, Si3N4, Si, Au, Air};
     N = length(structure);
     
     %% 5. Compute complex refractive index for each layer at all frequencies
     
     n_layers = zeros(N, npt);
     eps_layers = zeros(N, npt);
+    
     for j = 1:N
         curlayer = structure{j};
         eps = curlayer.n0 ^ 2;
-        if curlayer.type == 1
+        if curlayer.type == -1
+            eps = curlayer.eps1 + 1j*curlayer.eps2;
+        elseif curlayer.type == 1
             w_p = curlayer.omega_p;
-            g   = 1 / curlayer.tau;
-            eps = eps - (w_p^2) ./ (omega.^2 + 1i*g.*omega);  % Drude model
+            g   = 1 / curlayer.tauD;
+            eps = eps - (w_p^2) ./ (omega.^2 + 1i*g.*omega);              % Drude model
         elseif curlayer.type == 2
             w_p = curlayer.omega_p;
-            g   = 1 / curlayer.tau;
-            w_0 = curlayer.omega_0;
-            eps = eps + (w_p^2) ./ (w_0^2 - omega.^2 - 1i*g.*omega);  % Lorentz model
+            for peak = 1:length(curlayer.omega_0)
+                g   = 1 / curlayer.tau(peak);
+                w_0 = curlayer.omega_0(peak);
+                eps = eps + (w_p^2) ./ (w_0^2 - omega.^2 - 1i*g.*omega);  % Lorentz model
+            end
         elseif curlayer.type == 3
             w_p = curlayer.omega_p;
-            g   = 1 / curlayer.tau;
-            w_0 = curlayer.omega_0;
-            eps = eps - (w_p^2) ./ (omega.^2 + 1i*g.*omega) + (w_p^2) ./ (w_0^2 - omega.^2 - 1i*g.*omega);  %  Drude-Lorentz model
+            g   = 1 / curlayer.tauD;
+            eps = eps - (w_p^2) ./ (omega.^2 + 1i*g.*omega);
+            for peak = 1:length(curlayer.omega_0)
+                g   = 1 / curlayer.tau(peak);
+                w_0 = curlayer.omega_0(peak);
+                eps = eps + (w_p^2) ./ (w_0^2 - omega.^2 - 1i*g.*omega);  % Drude-Lorentz model
+            end
         end
         n_layers(j, :) = sqrt(eps);  % complex refractive index
         eps_layers(j, :) = eps;  % complex refractive index
-        % n_layers(j, :) = real(n_layers(j, :)) + 1i * abs(g(n_layers(j, :)));
     end
+
     
     %% 6. Assemble transfer matrices
     
@@ -119,6 +145,7 @@ for jj = 1:length(thcEXP)
     for j = 2:N-1
         curlayer = structure{j};
         d = curlayer.d;
+        d_layers(j, jj) = d;
         nL = n_layers(j-1, :);
         nR = n_layers(j,   :);
     
@@ -177,13 +204,13 @@ end
 % ylabel('R, T')
 % legend
 % disp(refl)
-reflgen = refl;
+% reflgen = refl;
 
-figure
-hold on
-scatter(thcEXP, reflgen, 'r', 'DisplayName','R')
-% plot(nu*1e-12, trans, 'b', 'DisplayName','T')
-% xlabel('\nu, THz')
-ylabel('R, T')
+% figure
+% hold on
+% % scatter(thcEXP, reflgen, 'r', 'DisplayName','R')
+% % plot(nu*1e-12, trans, 'b', 'DisplayName','T')
+% % xlabel('\nu, THz')
+% ylabel('R, T')
 % legend
 
