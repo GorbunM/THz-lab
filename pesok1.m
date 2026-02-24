@@ -17,3 +17,17 @@ end
 
 close(v)
 disp('That''s it')
+
+
+%%
+
+figure
+plot(CRAP, 'LineWidth',8, 'Color','#d3d3d3')
+set(gcf,'Color','#191919')     % фон всей фигуры
+set(gca,'Color','#191919')     % фон области графика
+set(gcf,'InvertHardcopy','off')
+axis off
+% exportgraphics(gcf,'fig.png','Resolution',600)
+exportgraphics(gcf,'fig.png', ...
+    'Resolution',600, ...
+    'BackgroundColor','#191919')

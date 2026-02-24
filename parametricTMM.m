@@ -1,4 +1,4 @@
-function [nu, refl, eps1, A] = parametricTMM(par) 
+function [nu, refl, eps1, A, trans] = parametricTMM(par) 
     %% 1. Constants (CGS units)
     
     c = 29979245800; % speed of light in cm/s 
@@ -55,19 +55,19 @@ function [nu, refl, eps1, A] = parametricTMM(par)
                  'd', 1, ...
                  'n0', 1);
     
-    Si = struct('type', 1, ...
-                'd', 5e-3, ...
-                'n0', 3.5, ...
+    Di = struct('type', 1, ...
+                'd', 5e-3*par, ...
+                'n0', 3.5./par, ...
                 'omega_p', 0, ...
                 'tauD', 1, ...
                 'tau', 1, ...
                 'omega_0', 1);
     
     Au = struct('type', 1, ...
-                'd', 2e-5, ...
+                'd', 4e-5, ...
                 'n0', 1, ...
-                'omega_p', sqrt(4*pi*9e9*5e7*1e19), ...
-                'tauD', 1e-19);
+                'omega_p', 1e18, ...
+                'tauD', 1e-16);
     
     Lor = struct('type', 2, ...
                  'd', 5e-5, ...
@@ -75,10 +75,17 @@ function [nu, refl, eps1, A] = parametricTMM(par)
                  'omega_p', 2*pi*1e13*par, ...
                  'tau', 1/(2*pi*1e12), ...
                  'omega_0', 2*pi*9.8e12);
+
+    ThirdLayer = struct('type', 2, ...
+                    'd', 5e-5, ...
+                    'n0', 1, ...
+                    'tau', 9*10^(-13.89), ...
+                    'omega_0', 2*pi*9.856e12, ...
+                    'magn', 1);
     
     %% 4. Stack construction
     
-    structure = {Air, Lor, Si, Au, Air};
+    structure = {Air, ThirdLayer, Di, Au, Air};
     N = length(structure);
     
     %% 5. Compute complex refractive index for each layer at all frequencies
@@ -88,28 +95,35 @@ function [nu, refl, eps1, A] = parametricTMM(par)
     for j = 1:N
         curlayer = structure{j};
         eps = curlayer.n0 ^ 2;
+        
         if curlayer.type == -1
             eps = curlayer.eps1 + 1j*curlayer.eps2;
+        
         elseif curlayer.type == 1
             w_p = curlayer.omega_p;
             g   = 1 / curlayer.tauD;
             eps = eps - (w_p^2) ./ (omega.^2 + 1i*g.*omega);              % Drude model
+        
         elseif curlayer.type == 2
-            w_p = curlayer.omega_p;
+        
             for peak = 1:length(curlayer.omega_0)
                 g   = 1 / curlayer.tau(peak);
                 w_0 = curlayer.omega_0(peak);
-                eps = eps + (w_p^2) ./ (w_0^2 - omega.^2 - 1i*g.*omega);  % Lorentz model
+                A_0 = curlayer.magn(peak);
+                eps = eps + A_0 * (w_0^2) ./ (w_0^2 - omega.^2 - 1i*g.*omega);  % Lorentz model
             end
+        
         elseif curlayer.type == 3
             w_p = curlayer.omega_p;
             g   = 1 / curlayer.tauD;
             eps = eps - (w_p^2) ./ (omega.^2 + 1i*g.*omega);
+        
             for peak = 1:length(curlayer.omega_0)
                 g   = 1 / curlayer.tau(peak);
                 w_0 = curlayer.omega_0(peak);
                 eps = eps + (w_p^2) ./ (w_0^2 - omega.^2 - 1i*g.*omega);  % Drude-Lorentz model
             end
+            
             n_layers(j, :) = sqrt(eps);  % complex refractive index
             eps_layers(j, :) = eps;  % complex 
         end

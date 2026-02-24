@@ -4,7 +4,7 @@ c = 29979245800; % speed of light in cm/s
 
 %% 2. Frequency range
 
-npt = 500;
+npt = 1000;
 nu = linspace(1.5e11, 1.5e13, npt);  % frequency in Hz
 omega = 2*pi*nu;  % angular frequency in rad/s
 
@@ -38,7 +38,6 @@ omega = 2*pi*nu;  % angular frequency in rad/s
     % LorentzLayer = struct('type', 2, ...
     %                       'd', 5e-5, ...
     %                       'n0', 1, ...
-    %                       'omega_p', 2*pi*1e14, ...
     %                       'tau', [2*pi*1e13, 2*pi*5e12], ...
     %                       'omega_0', [2*pi*1.5e14, 2*pi*1.2e14], ...
     %                       'magn', [10, 1]);
@@ -78,17 +77,16 @@ Lor = struct('type', 2, ...
              'omega_0', 2*pi*5e12, ...
              'magn', 1);
 
-LorentzLayer = struct('type', 2, ...
-                      'd', 5e-5, ...
-                      'n0', 1, ...
-                      'omega_p', 2*pi*1e14, ...
-                      'tau', [2*pi*1e13, 2*pi*5e12], ...
-                      'omega_0', [2*pi*1.5e12, 2*pi*1.2e13], ...
-                      'magn', [1, 10]);
+ThirdLayer = struct('type', 2, ...
+                    'd', 5e-5, ...
+                    'n0', 1, ...
+                    'tau', 9e-11, ...
+                    'omega_0', [2*pi*1e13], ...
+                    'magn', [5e-2]);
 
 %% 4. Stack construction
 
-structure = {Air, LorentzLayer, Air};
+structure = {Air, ThirdLayer, Air};
 N = length(structure);
 
 %% 5. Compute complex refractive index for each layer at all frequencies
@@ -99,31 +97,36 @@ for j = 1:N
     curlayer = structure{j};
     eps = curlayer.n0 ^ 2;
     if curlayer.type == -1
-        eps = curlayer.eps1 + 1j*curlayer.eps2;
+        eps = curlayer.eps1 + 1j*curlayer.eps2;                             % Given
+    
     elseif curlayer.type == 1
         w_p = curlayer.omega_p;
         g   = 1 / curlayer.tauD;
-        eps = eps - (w_p^2) ./ (omega.^2 + 1i*g.*omega);              % Drude model
+        eps = eps - (w_p^2) ./ (omega.^2 + 1i*g.*omega);                    % Drude model
+    
     elseif curlayer.type == 2
-        w_p = curlayer.omega_p;
         for peak = 1:length(curlayer.omega_0)
             g   = 1 / curlayer.tau(peak);
             w_0 = curlayer.omega_0(peak);
             A_0 = curlayer.magn(peak);
-            eps = eps + A_0 * (w_p^2) ./ (w_0^2 - omega.^2 - 1i*g.*omega);  % Lorentz model
+            eps = eps + A_0 * (w_0^2) ./ (w_0^2 - omega.^2 - 1i*g.*omega);  % Lorentz model
         end
+    
     elseif curlayer.type == 3
         w_p = curlayer.omega_p;
         A_0 = curlayer.magn;
         g   = 1 / curlayer.tauD;
         eps = eps - (w_p^2) ./ (omega.^2 + 1i*g.*omega);
+    
         for peak = 1:length(curlayer.omega_0)
             g   = 1 / curlayer.tau(peak);
             w_0 = curlayer.omega_0(peak);
-            eps = eps + A_0(peak) * (w_p^2) ./ (w_0^2 - omega.^2 - 1i*g.*omega);  % Drude-Lorentz model
+            eps = eps + A_0(peak) * (w_0^2) ./ (w_0^2 - omega.^2 - 1i*g.*omega);  % Drude-Lorentz model
         end
+        
         n_layers(j, :) = sqrt(eps);  % complex refractive index
         eps_layers(j, :) = eps;  % complex 
+    
     end
     n_layers(j, :) = sqrt(eps);  % complex refractive index
     eps_layers(j, :) = eps;  % complex refractive index
@@ -189,10 +192,10 @@ nu = nu*1e-12;
 
 figure
 hold on
-% plot(nu, refl, 'r', 'DisplayName','R')
-% plot(nu, trans, 'b', 'DisplayName','T')
-plot(nu, real(eps_layers(2,:)), 'DisplayName', '$\varepsilon^{\prime}$')
-plot(nu, imag(eps_layers(2,:)), 'DisplayName', '$\varepsilon^{\prime\prime}$')
+plot(nu, refl, 'r', 'DisplayName','R')
+plot(nu, trans, 'b', 'DisplayName','T')
+% plot(nu, real(eps_layers(2,:)), 'DisplayName', '$\varepsilon^{\prime}$')
+% plot(nu, imag(eps_layers(2,:)), 'DisplayName', '$\varepsilon^{\prime\prime}$')
 xlabel('\nu, THz')
 % ylabel('R, T')
 legend('Interpreter','latex', 'FontSize', 14)
