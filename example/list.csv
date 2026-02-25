@@ -1,0 +1,6 @@
+#Signal					Reference		Line Style
+#
+TDS-Si.csv,				TDS-ref1.csv,	-
+#TDS-paraf+Si.csv, 		TDS-ref2.csv,	-
+#
+# Lines starting with '#', try it with 4th line! With 4th line off and on you should get TDS-example1.png and TDS-example1.png correspondingly
