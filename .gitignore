@@ -1,5 +1,7 @@
 *.asv
 *.m~
 *.fig
+*.mp4
+*.png
 slprj/
 codegen/

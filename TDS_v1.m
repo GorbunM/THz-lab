@@ -1,8 +1,8 @@
 % folder with data files
-curdir = 'C:\Users\mgorbun\Documents\MATLAB\TDS\setup-test';   
+curdir = 'C:\Users\mgorbun\Documents\MATLAB\THz-lab\example\';   
 
 % file with a list of data files
-listfile = fullfile(curdir, 'list.txt');
+listfile = fullfile(curdir, 'list.csv');
 
 % read list of filenames as string array
 A = readmatrix(listfile, 'Delimiter', ',', 'OutputType', 'string');
@@ -45,12 +45,13 @@ for i = A'
     end
 end
 
+ylim([0, 1])
 xlabel('THz');
 legend
 
 % T = array2table(outS, 'VariableNames', A(:,1)');   % convert accumulated amplitudes to table 
 % writetable(T, fullfile(curdir, 'specA.csv'), 'Delimiter', '\t');      % save table as file
 
-% saveas(gcf, fullfile(curdir, 'T.png'))    % save figure to file (disabled)
+saveas(gcf, fullfile(curdir, 'T.png'))    % save figure to file (disabled)
 
 disp("That's it")

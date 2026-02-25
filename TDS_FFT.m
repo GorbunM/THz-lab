@@ -1,4 +1,5 @@
 function outm = TDS_FFT(timeTrace, frmin, frmax)
+    
     arguments
         timeTrace
         frmin = 0.15
