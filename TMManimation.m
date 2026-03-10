@@ -1,5 +1,6 @@
 f = @(x) parametricTMM(x);   
-X = linspace(1, 7/3, 100); 
+X = linspace(1, 2, 100); 
+% X = 1;
 %%
 
 v = VideoWriter('R.mp4','MPEG-4');
@@ -12,16 +13,20 @@ for k = 1:numel(X)
     % [ymax, idx] = findpeaks(A);
     % yfit = interp1(nu(idx), ymax, nu, 'spline');
     tiledlayout(2,1)
-    nexttile, plot(nu, real(eps), 'r', nu, imag(eps), 'b'); ylim([-10, 10])
+    nexttile, plot(nu, real(eps), 'r', nu, imag(eps), 'b'); ylim([-100, 100])
     % title(sprintf('omega_p = 2pi x %.2f', floor(X(k)*10)))    
-    % title(sprintf('x = %.2f', X(k)))
-    title(sprintf('n_{Di} = %.2f', 3.5/X(k)))
+    title(sprintf('x = %.2f', X(k)))
+    % title(sprintf('n_{Di} = %.2f', 3.5/X(k)))
     % nexttile, plot(nu, R, '-', nu, yfit, '-'); ylim([0, 1])
-    nexttile, plot(nu, R, '-', nu, T, '-'); ylim([0, 1])
+    % nexttile, plot(nu, R, '-', nu, T, '-'); ylim([0, 1])
+    nexttile, plot(nu, A, '-'); ylim([0, 1])
     frame = getframe(gcf);
     writeVideo(v, frame);
     drawnow
 end
 
 close(v)
+
+% saveas(gcf, '3.png')
+
 disp('That''s it')
