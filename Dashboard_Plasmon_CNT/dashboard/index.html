@@ -1,0 +1,2293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Surface Polariton Dispersion Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
+  <style>
+    /* ── Design system (Default Light Mode) ────────────────────────────────────────── */
+    :root {
+      --bg: #f6f8fa;
+      --card: #ffffff;
+      --border: #d0d7de;
+      --accent1: #0969da;
+      --accent2: #cf222e;
+      --accent3: #1a7f37;
+      --accent4: #8250df;
+      --text: #1f2328;
+      --muted: #656d76;
+      --panel-w: 310px;
+      --radius: 10px;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      --canvas-bg: #ffffff;
+      --grid-color: #e5e9ec;
+      --tick-color: #1f2328;
+      --label-color: #1f2328;
+      --input-bg: rgba(0, 0, 0, 0.04);
+      --title-bg: rgba(0, 0, 0, 0.04);
+      --zero-line: rgba(31, 35, 40, 0.2);
+    }
+
+    /* Dark Mode Theme */
+    .dark {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --accent1: #58a6ff;
+      --accent2: #ff7b72;
+      --accent3: #3fb950;
+      --accent4: #d2a8ff;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --canvas-bg: #0d1117;
+      --grid-color: #30363d;
+      --tick-color: #c9d1d9;
+      --label-color: #e6edf3;
+      --input-bg: rgba(255, 255, 255, 0.06);
+      --title-bg: rgba(0, 0, 0, 0.2);
+      --zero-line: rgba(230, 237, 243, 0.2);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .top-bar {
+      height: 52px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .top-bar-title {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 1.25rem;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+
+
+    /* ── Layout ───────────────────────────────────────────────── */
+    .workspace {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────────── */
+    .sidebar {
+      width: var(--panel-w);
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 14px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .section-title {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: var(--muted);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .control-group label {
+      font-size: .72rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .control-group label span {
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: .72rem;
+    }
+
+    .value-input {
+      width: 90px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: .72rem;
+      text-align: right;
+      padding-right: 4px;
+      padding: 2px 6px;
+    }
+
+    .value-input:focus {
+      outline: none;
+      border-color: var(--accent1);
+    }
+
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--accent1);
+      cursor: pointer;
+    }
+
+    /* ── Legend ───────────────────────────────────────────────── */
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .72rem;
+      color: var(--muted);
+    }
+
+    .legend-line {
+      width: 28px;
+      height: 3px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .legend-dashed {
+      width: 28px;
+      height: 0;
+      border-top: 2px dashed;
+      flex-shrink: 0;
+    }
+
+    /* ── Canvas area ──────────────────────────────────────────── */
+    .canvas-area {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 0;
+      overflow: hidden;
+      padding: 10px;
+      gap: 10px;
+    }
+
+    .plot-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .plot-title {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--text);
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--title-bg);
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .plot-title::after {
+
+      font-size: 0.6rem;
+      font-weight: normal;
+      color: var(--muted);
+      opacity: 0.7;
+      font-family: var(--font-mono);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .status-bar {
+      position: absolute;
+      top: 42px;
+      right: 12px;
+      font-size: .65rem;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      background: var(--canvas-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── Buttons ──────────────────────────────────────────────── */
+    .btn {
+      padding: 7px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, .06);
+      color: var(--text);
+      font-size: .75rem;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, .12);
+      border-color: var(--accent1);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, rgba(88, 166, 255, .2), rgba(210, 168, 255, .2));
+      border-color: var(--accent1);
+    }
+
+    /* ── Loading spinner ──────────────────────────────────────── */
+    .computing {
+      font-size: .7rem;
+      color: var(--accent1);
+      font-family: var(--font-mono);
+      animation: pulse 1s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse {
+      from {
+        opacity: .4;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    /* ── Sidebar resize handle ─────────────────────────────────────── */
+    #sidebar-resizer {
+      width: 6px;
+      flex-shrink: 0;
+      background: var(--border);
+      cursor: col-resize;
+      transition: background .15s;
+      position: relative;
+      z-index: 10;
+    }
+    #sidebar-resizer:hover,
+    #sidebar-resizer.dragging {
+      background: var(--accent1);
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="top-bar">
+    <div class="top-bar-title" style="display:flex; align-items:center;">
+      <img src="./img/icon.png" alt="Icon" style="height: 2.5rem; margin-right: 12px; border-radius: 4px;">
+      Surface Polariton Dispersion
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="btn" style="color:var(--accent1); border-color:var(--accent1);"
+        onclick="document.getElementById('guide-modal').style.display='flex'">Guide</button>
+      <button class="btn" onclick="document.getElementById('info-modal').style.display='flex'">Parameters</button>
+      <button class="btn" style="color:var(--accent3); border-color:var(--accent3);"
+        onclick="document.getElementById('curves-modal').style.display='flex'">Curves</button>
+      <button class="btn" style="color:var(--accent4); border-color:var(--accent4);"
+        onclick="document.getElementById('algo-modal').style.display='flex'">Algorithms</button>
+      <button class="btn" style="border-color:var(--muted);"
+        onclick="document.getElementById('wiki-modal').style.display='flex'">Wiki</button>
+      <button class="btn" id="theme-toggle" onclick="toggleTheme()">☀ Light</button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar" style="padding-top:10px;">
+
+      <!-- Guide Modal -->
+      <div id="guide-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;"
+        onclick="if(event.target===this)this.style.display='none'">
+        <div
+          style="background:var(--card); border:1px solid var(--border); border-radius:8px; width:700px; max-width:95%; padding:20px; box-shadow:0 4px 20px rgba(0,0,0,0.6); max-height:85vh; overflow-y:auto;">
+          <div
+            style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:15px;">
+            <h3 style="color:var(--text); font-size:1.1rem;">Application Guide</h3>
+            <button class="btn" onclick="document.getElementById('guide-modal').style.display='none'">Close</button>
+          </div>
+          <div style="font-size:0.85rem; color:var(--muted); line-height:1.6;">
+            <p style="margin-bottom:12px; font-size:0.9rem; font-weight:600; color:var(--text);">How to use the
+              Dashboard</p>
+            <p style="margin-bottom:12px;">This interactive dashboard computes and visualizes the dispersion relations
+              of Surface Polaritons (SPs) in a three-layer asymmetric waveguide structure: <strong>Top Dielectric (ε₁) /
+                Metal Film (thickness h) / Bottom Dielectric (ε₃)</strong>.</p>
+
+            <ol style="margin-left: 20px; margin-bottom: 16px;">
+              <li style="margin-bottom:8px;"><strong>Set the Material Parameters:</strong> Use the left sidebar to
+                adjust the dielectric constants (ε₁, ε₃) and the metal properties (Plasma frequency ω<sub>p</sub>,
+                Damping rate Γ). The solver computes your changes automatically as you release the sliders.</li>
+              <li style="margin-bottom:8px;"><strong>Observe the Dispersion:</strong> The top-left plot displays the
+                real part of the propagation constant β<sub>R</sub> against frequency ω. Watch how changing the film
+                thickness <em>h</em> causes the modes to couple and split or merge into the single-interface limits.
+              </li>
+              <li style="margin-bottom:8px;"><strong>Select a Specific Frequency:</strong> Use the "Selected f (THz)"
+                slider to sample a specific frequency. A vertical dashed line marks your selection on the main plots.
+              </li>
+              <li style="margin-bottom:8px;"><strong>Analyze the Computed State:</strong> The exact numerical roots
+                (both bound β₁/β₂ and leaky βL₁/βL₂) at the selected frequency are printed in the <em>COMPUTED AT ω</em>
+                box, along with derived Physical metrics like the propagation length (L<sub>p</sub>) in real meters.
+              </li>
+              <li style="margin-bottom:8px;"><strong>View the Transverse Profile:</strong> The bottom-right plot
+                visualizes the field intensity |f(z)|² across the depth of the waveguide structure at your selected
+                frequency.</li>
+              <li style="margin-bottom:8px;"><strong>Interact with Plots:</strong> You can interact with the graphs
+                directly: Scroll to Zoom, Drag to Pan, and Double-click to Reset the view.</li>
+            </ol>
+            <p style="margin-bottom:0; padding-top:10px; border-top:1px dashed var(--border);"><em>Pro-tip: If you enter
+                an invalid domain (e.g. searching for bound modes at frequencies above the asymptotic limit), you may
+                see the curves disappear or vanish into the leaky regime. Use the Parameters and Curves buttons for
+                physics guidance!</em></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Computed Box Help Modal -->
+      <div id="computed-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;"
+        onclick="if(event.target===this)this.style.display='none'">
+        <div
+          style="background:var(--card); border:1px solid var(--border); border-radius:8px; width:700px; max-width:95%; padding:20px; box-shadow:0 4px 20px rgba(0,0,0,0.6); max-height:85vh; overflow-y:auto;">
+          <div
+            style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:15px;">
+            <h3 style="color:var(--text); font-size:1.1rem;">Computed Values & Legend Explanation</h3>
+            <button class="btn" onclick="document.getElementById('computed-modal').style.display='none'">Close</button>
+          </div>
+          <div style="font-size:0.85rem; color:var(--muted); line-height:1.6;">
+            <p style="margin-bottom:12px; font-weight:700; color:var(--text); font-size:0.95rem;">Numerical Roots</p>
+            <p style="margin-bottom:8px;"><strong>β₁, β₂ (Bound Modes)</strong>: The complex propagation constants of
+              the coupled bound surface polaritons. <em>Real part</em> gives the spatial oscillation frequency.
+              <em>Imaginary part</em> gives the exponential decay (loss).
+            </p>
+            <p style="margin-bottom:12px;"><strong>βL₁, βL₂ (Leaky Modes)</strong>: The complex propagation constants of
+              the radiative leaky modes. These physically leak energy away from the metal interfaces into the bulk
+              dielectric regions.</p>
+
+            <p style="margin-bottom:12px; font-weight:700; color:var(--text); font-size:0.95rem;">Live Sampled State</p>
+            <p style="margin-bottom:4px;"><strong>ε_m</strong>: The complex permittivity of the metal at the chosen
+              frequency ω. Calculated from the chosen ω<sub>p</sub> and Γ.</p>
+            <p style="margin-bottom:4px;"><strong>ε₁, ε₃, ω<sub>p</sub>, Γ, h</strong>: Your inputted system parameters.
+            </p>
+            <p style="margin-bottom:4px;"><strong>ω</strong>: The absolute physical frequency currently selected by the
+              <em>Selected f (THz)</em> slider.
+            </p>
+            <p style="margin-bottom:12px;"><strong>k₀ index</strong>: The internal array index of the frequency point
+              currently being queried.</p>
+
+            <p style="margin-bottom:12px; font-weight:700; color:var(--text); font-size:0.95rem;">Derived Figures of
+              Merit</p>
+            <p style="margin-bottom:16px;"><strong>Lₚ = 1 / (2·Im[β])</strong> (meters): The physical propagation length
+              of each individual mode. Demonstrates how far the wave propagates parallel directly to the interface
+              before its intensity drops by exactly 1/e (≈37%). Notice how tightly confined modes typically have much
+              shorter propagation lengths due to high energy density in the lossy metal.</p>
+
+            <div
+              style="background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:10px; border-radius:6px; font-family:var(--font-mono); font-size:0.8rem;">
+              <span style="color:var(--text); font-weight:bold; font-family:sans-serif;">Legend Glossary</span><br>
+              <ul style="margin:8px 0 0 20px; padding:0; line-height:1.5;">
+                <li><span style="color:var(--accent1);">━━</span> <strong>Mode β₁ — SP₁ (ε₁ side)</strong>: The bound
+                  mode more confined to the top ε₁ cladding.</li>
+                <li><span style="color:var(--accent2);">━━</span> <strong>Mode β₂ — SP₃ (ε₃ side)</strong>: The bound
+                  mode more confined to the bottom ε₃ cladding.</li>
+                <li><span style="color:var(--accent3);">━━</span> <strong>Mode βL₁ — leaky (+S₁, −S₃)</strong>: Leaky
+                  wave radiating into bottom cladding.</li>
+                <li><span style="color:var(--accent4);">━━</span> <strong>Mode βL₂ — leaky (−S₁, +S₃)</strong>: Leaky
+                  wave radiating into top cladding.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
+      <!-- Info Modal -->
+      <div id="info-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;"
+        onclick="if(event.target===this)this.style.display='none'">
+        <div
+          style="background:var(--card); border:1px solid var(--border); border-radius:8px; width:700px; max-width:95%; padding:20px; box-shadow:0 4px 20px rgba(0,0,0,0.6); max-height:85vh; overflow-y:auto;">
+          <div
+            style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:15px;">
+            <h3 style="color:var(--text); font-size:1.1rem;">Input Parameters & Drude Model Reference</h3>
+            <button class="btn" onclick="document.getElementById('info-modal').style.display='none'">Close</button>
+          </div>
+          <div style="font-size:0.85rem; color:var(--muted); line-height:1.6;">
+            <p style="margin-bottom:12px;"><strong style="color:var(--accent1); font-size:0.95rem;">ε₁ & ε₃
+                (Unitless)</strong><br>
+              The relative permittivity (dielectric constant) of the top (cladding) and bottom (substrate) layers. For
+              bound Surface Polariton modes to exist, we require materials acting as positive dielectrics facing a
+              negative permittivity metal: ε₁ > 0 and ε₃ > 0. The asymmetry ε₁ ≠ ε₃ drives mode cutoff conditions.</p>
+
+            <p style="margin-bottom:12px;"><strong style="color:var(--accent2); font-size:0.95rem;">ω<sub>p</sub>
+                (rad/s)</strong> — The Plasma Frequency<br>
+              The natural frequency of collective electron oscillations in the metal. This acts as the fundamental
+              scaling frequency of the system. Frequencies above ω<sub>p</sub> cause the metal to behave like an
+              ordinary transparent dielectric interface, whereas below ω<sub>p</sub>, it acts as an opaque metal
+              supporting surface waves.</p>
+
+            <p style="margin-bottom:12px;"><strong style="color:var(--accent3); font-size:0.95rem;">Γ (rad/s)</strong> —
+              The Drude Damping Rate<br>
+              Governs the collision frequency of electrons in the lattice. A non-zero Γ introduces an imaginary
+              component to the metal's permittivity, representing ohmic/absorptive losses, which in turn causes the
+              propagation constant β to become complex.</p>
+
+            <p style="margin-bottom:16px;"><strong style="color:var(--accent4); font-size:0.95rem;">h (nm)</strong> —
+              Physical Thickness<br>
+              The physical thickness of the central metal film. As <em>h</em> → ∞, the two interfaces decouple yielding
+              the single-interface polaritons SP₁(∞) and SP₃(∞). As <em>h</em> shrinks, the evanescent tails from each
+              surface overlap, lifting the degeneracy and creating symmetric and antisymmetric coupled modes.</p>
+
+            <div
+              style="background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:12px; border-radius:6px; font-family:var(--font-mono); font-size:0.8rem; margin-bottom:12px;">
+              <div style="margin-bottom:6px; color:var(--text); font-family:sans-serif; font-weight:bold;">The Drude
+                Model Formula</div>
+              ε<sub>m</sub>(ω) = ε<sub>∞</sub> − ω<sub>p</sub>² / [ω(ω + iΓ)]<br><br>
+              Which expands into imaginary analytical form as:<br>
+              Re[ε<sub>m</sub>] = const. − (ω<sub>p</sub>²) / (ω² + Γ²)<br>
+              Im[ε<sub>m</sub>] = (ω<sub>p</sub>² · Γ) / [ω(ω² + Γ²)]
+            </div>
+
+            <p style="margin-bottom:0; padding-top:10px; border-top:1px dashed var(--border);"><em>Note: For
+                root-finding stability at ultra-low tolerance levels (1e-12), the C++ solver internally normalizes the
+                frequency grid k₀ to ω/ω<sub>p</sub> and scales spatial variables proportionally to
+                c/ω<sub>p</sub>.</em></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Curves Help Modal -->
+      <div id="curves-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;"
+        onclick="if(event.target===this)this.style.display='none'">
+        <div
+          style="background:var(--card); border:1px solid var(--border); border-radius:8px; width:750px; max-width:95%; padding:20px; box-shadow:0 4px 20px rgba(0,0,0,0.6); max-height:85vh; overflow-y:auto;">
+          <div
+            style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:15px;">
+            <h3 style="color:var(--text); font-size:1.1rem;">Curves & Physics Parameters Reference</h3>
+            <button class="btn" onclick="document.getElementById('curves-modal').style.display='none'">Close</button>
+          </div>
+          <div style="font-size:0.85rem; color:var(--muted); line-height:1.6;">
+            <p style="margin-bottom:12px; font-weight:700; color:var(--text); font-size:0.95rem;">Dispersion Curves
+              (top-left plot)</p>
+            <p style="margin-bottom:6px;"><span style="color:var(--accent1);">━━</span> <strong>β₁ : Bound Long-Range
+                SP</strong> — Bound SP mode localized at the ε₁ (high-index) side. As thickness h→∞, converges to the
+              single-interface SP₁(∞) limit. Has symmetric-like transverse field coupling.</p>
+            <p style="margin-bottom:6px;"><span style="color:var(--accent2);">━━</span> <strong>β₂ : Bound Short-Range
+                SP</strong> — Bound SP mode localized at the ε₃ (low-index) side. Exhibits tighter field confinement and
+              higher propagation loss.</p>
+            <p style="margin-bottom:6px;"><span style="color:var(--accent3);">━━</span> <strong>βL₁ : Leaky
+                Mode</strong> — Leaky mode with transverse field sign combination (+S₁, −S₃). Radiates energy into the
+              semi-infinite ε₃ substrate.</p>
+            <p style="margin-bottom:14px;"><span style="color:var(--accent4);">━━</span> <strong>βL₂ : Leaky
+                Mode</strong> — Leaky mode with transverse field sign combination (−S₁, +S₃). Radiates energy into the
+              ε₁ superstrate.</p>
+
+            <div
+              style="background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:12px; border-radius:6px; font-family:var(--font-mono); font-size:0.8rem; margin-bottom:14px;">
+              <div style="margin-bottom:6px; color:var(--text); font-family:sans-serif; font-weight:bold;">Analytic
+                Dispersion Relation</div>
+              Single-interface SP(∞) exact solution:<br>
+              β = (ω/c) · √[ (ε<sub>d</sub> · ε<sub>m</sub>) / (ε<sub>d</sub> + ε<sub>m</sub>) ]<br><br>
+              Thin-film three-layer implicit equation (solved via Muller's Root Finding):<br>
+              tanh(S₂·h) = -[S₂(S₁/ε₁ + S₃/ε₃)] / [S₂²/ε² + (S₁·S₃)/(ε₁·ε₃)]<br>
+              where S<sub>i</sub> = √(β² - ε<sub>i</sub>·(ω/c)²) represents the transverse wavenumber component.
+            </div>
+
+            <p style="margin-bottom:10px; font-weight:700; color:var(--text); font-size:0.95rem;">Reference Lines</p>
+            <p style="margin-bottom:6px;"><span style="color:var(--accent1);">┄┄</span> <strong>SP₁(∞)</strong> —
+              Analytical single-interface dispersion curve at the semi-infinite metal / ε₁ (top) boundary.</p>
+            <p style="margin-bottom:6px;"><span style="color:var(--accent2);">┄┄</span> <strong>SP₃(∞)</strong> —
+              Analytical single-interface dispersion curve at the semi-infinite metal / ε₃ (bottom) boundary.</p>
+            <p style="margin-bottom:14px;"><span style="color:var(--muted);">┄┄</span> <strong>Light lines</strong> —
+              Photon momentum lines β = √(ε) · ω/c. Below these lines, the bound modes become radiative (cutoff point)
+              as they intersect the bulk propagating regime.</p>
+
+            <p style="margin-bottom:10px; font-weight:700; color:var(--text); font-size:0.95rem;">Other Plots & Metrics
+            </p>
+            <p style="margin-bottom:6px;"><strong>Attenuation</strong> (top-right): Visualizes the imaginary part Im(β).
+              Higher values correspond to shorter propagation lengths due to Drude damping.</p>
+            <p style="margin-bottom:6px;"><strong>Field Profile</strong> (bottom-right): Transverse cross-section of
+              intensity |f(z)|² spanning across the waveguide stack at the selected sampling frequency ω.</p>
+
+            <div
+              style="background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:10px; border-radius:6px; font-family:var(--font-mono); font-size:0.8rem; margin-top:10px;">
+              <span style="color:var(--text); font-weight:bold; font-family:sans-serif;">Propagation Length:</span><br>
+              L<sub>p</sub> = 1 / (2 · Im[β<sub>phys</sub>]) (meters)<br>
+              <em>Measures the distance an SP wave travels before its intensity drops by a factor of 1/e.</em>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Algorithms Help Modal -->
+      <div id="algo-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;"
+        onclick="if(event.target===this)this.style.display='none'">
+        <div
+          style="background:var(--card); border:1px solid var(--border); border-radius:8px; width:750px; max-width:95%; padding:20px; box-shadow:0 4px 20px rgba(0,0,0,0.6); max-height:85vh; overflow-y:auto;">
+          <div
+            style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:15px;">
+            <h3 style="color:var(--text); font-size:1.1rem;">Implementation Details & Algorithms</h3>
+            <button class="btn" onclick="document.getElementById('algo-modal').style.display='none'">Close</button>
+          </div>
+          <div style="font-size:0.85rem; color:var(--muted); line-height:1.6;">
+            <p style="margin-bottom:12px; font-weight:700; color:var(--text); font-size:0.95rem;">Numerical Techniques
+            </p>
+            <p style="margin-bottom:8px;"><strong>Muller's Method:</strong> The core root-finding algorithm used to
+              solve the implicit dispersion relation for the complex propagation constant β. Unlike Newton-Raphson,
+              Muller's method does not require analytical derivatives and naturally handles complex roots by fitting a
+              parabola through three initial points at each step.</p>
+            <p style="margin-bottom:8px;"><strong>Parameter Continuation:</strong> To trace out the continuous
+              dispersion curves over the frequency grid (k₀), the solver uses the converged solution β(k₀) as the
+              starting initial guess for the next frequency step β(k₀ + Δk₀). This ensures numerical stability and
+              prevents the solver from jumping between different polariton mode branches.</p>
+            <p style="margin-bottom:12px;"><strong>Single-Interface Asymptotics:</strong> At the very first frequency
+              point (lowest k₀), the solver initializes Muller's method using the exact analytical solutions for the
+              two single-interface surface plasmons (SP₁ and SP₃) evaluated at infinite film thickness (h → ∞).</p>
+
+            <p style="margin-bottom:12px; font-weight:700; color:var(--text); font-size:0.95rem;">Branch Selection &
+              Leaky Modes</p>
+            <p style="margin-bottom:8px;"><strong>Square Root Branching:</strong> The transverse decay constant S =
+              √(β² - εk₀²) requires careful branch selection on the complex plane. The principal square root is taken
+              and mathematically forced to yield Re(S) > 0, which corresponds to exponentially decaying <em>bound</em>
+              fields required by boundary conditions at infinity.</p>
+            <p style="margin-bottom:8px;"><strong>Leaky Wave Detection:</strong> Modes that cross the light line
+              (photon momentum lines) cease to be perfectly bound. To find these <em>leaky modes</em>, the solver
+              intentionally flips the sign of S in either the top or bottom cladding, effectively searching for waves
+              that <em>grow</em> exponentially in the transverse direction, radiating power into the bulk dielectrics.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Wiki Modal -->
+      <div id="wiki-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;"
+        onclick="if(event.target===this)this.style.display='none'">
+        <div
+          style="background:var(--card); border:1px solid var(--border); border-radius:8px; width:750px; max-width:95%; padding:20px; box-shadow:0 4px 20px rgba(0,0,0,0.6); max-height:85vh; overflow-y:auto;">
+          <div
+            style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:15px;">
+            <h3 style="color:var(--text); font-size:1.1rem;">Wiki: Parameters & Acronyms</h3>
+            <button class="btn" onclick="document.getElementById('wiki-modal').style.display='none'">Close</button>
+          </div>
+          <div style="font-size:0.85rem; color:var(--muted); line-height:1.6;">
+            <p style="margin-bottom:12px; font-weight:700; color:var(--text); font-size:0.95rem;">Core Acronyms</p>
+            <ul style="margin-left: 20px; margin-bottom: 16px;">
+              <li style="margin-bottom:4px"><strong>SP:</strong> Surface Polariton (or Surface Plasmon). An
+                electromagnetic wave coupled to plasma oscillations at a metal-dielectric interface.</li>
+              <li style="margin-bottom:4px"><strong>LRSP / SRSP:</strong> Long-Range / Short-Range Surface Polariton.
+                In thin films, the two interfaces couple, creating a symmetric mode (Long-Range, lower loss) and an
+                antisymmetric mode (Short-Range, higher loss).</li>
+              <li style="margin-bottom:4px"><strong>TM:</strong> Transverse Magnetic. Surface polaritons only exist
+                for TM (p-polarized) light where the magnetic field is strictly parallel to the interface.</li>
+            </ul>
+
+            <p style="margin-bottom:12px; font-weight:700; color:var(--text); font-size:0.95rem;">Physical Parameters
+              Glossary</p>
+            <ul style="margin-left: 20px; margin-bottom: 16px;">
+              <li style="margin-bottom:4px"><strong>ε₁ (Top) / ε₃ (Bottom):</strong> The real, positive relative
+                permittivity of the semi-infinite dielectric cladding layers.</li>
+              <li style="margin-bottom:4px"><strong>ε_m:</strong> The complex permittivity of the central metal film,
+                evaluated via the Drude model. Must have a negative real part to support an SP.</li>
+              <li style="margin-bottom:4px"><strong>ω (Omega):</strong> The absolute angular frequency of the
+                excitation wave [rad/s].</li>
+              <li style="margin-bottom:4px"><strong>ω_p (Plasma Freq):</strong> The natural oscillation frequency of
+                the free electron gas in the metal. The resonance frequency asymptote.</li>
+              <li style="margin-bottom:4px"><strong>Γ (Gamma):</strong> The electron collision rate in the metal,
+                dictating ohmic losses (damping) and placing a floor on the mode's lifespan.</li>
+              <li style="margin-bottom:4px"><strong>h:</strong> The physical geometric thickness of the metal film
+                [nm].</li>
+              <li style="margin-bottom:4px"><strong>k₀:</strong> Free-space wave-number (k₀ = ω/c). It represents the
+                momentum of a photon in a vacuum.</li>
+              <li style="margin-bottom:4px"><strong>β (Beta):</strong> The complex propagation constant of the SP
+                wave. Re(β) governs phase velocity; Im(β) governs propagation loss in the guided direction.</li>
+              <li style="margin-bottom:4px"><strong>S (Decay Constant):</strong> The transverse wave-number component.
+                S = √(β² - εk₀²). Governs how far the fields penetrate away from the interface in the perpendicular
+                z-axis.</li>
+              <li style="margin-bottom:4px"><strong>L_p:</strong> Propagation Length. Distance over which the wave's
+                power decays by 1/e due to absorptive or radiative losses.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 10px;"></div>
+
+      <div>
+        <div class="section-title">MATERIAL PARAMETERS</div>
+        <div class="control-group">
+          <label>ε₁ (top dielectric) <input type="number" class="value-input" id="lbl-eps1" min="1" max="20" step="0.05"
+              value="3.000" oninput="validateInput('eps1')" onchange="scheduleCompute()" onfocus="clearInput('eps1')"
+              onblur="restoreInput('eps1')"></label>
+          <input type="range" id="eps1" min="1" max="20" step="0.05" value="3.0"
+            oninput="setLabel('eps1')" onchange="scheduleCompute()">
+        </div>
+        <div class="control-group">
+          <label>ε₃ (bottom dielectric) <input type="number" class="value-input" id="lbl-eps3" min="1" max="20"
+              step="0.05" value="1.000" oninput="validateInput('eps3')" onchange="scheduleCompute()" onfocus="clearInput('eps3')"
+              onblur="restoreInput('eps3')"></label>
+          <input type="range" id="eps3" min="1" max="20" step="0.05" value="1.0"
+            oninput="setLabel('eps3')" onchange="scheduleCompute()">
+        </div>
+        <div class="control-group" style="margin-top:4px">
+          <label>ω_p (rad/s) <input type="number" class="value-input" id="lbl-omegap" min="6e12" max="2e14" step="1e12"
+              value="4.50e+13" oninput="validateInputLive('omegap')" onchange="scheduleCompute()" onfocus="clearInput('omegap')"
+              onblur="restoreInput('omegap')"></label>
+          <input type="range" id="omegap" min="6e12" max="2e14" step="1e12" value="4.5e13"
+            oninput="setLabel('omegap')" onchange="scheduleCompute()">
+        </div>
+        <div class="control-group" style="margin-top:4px">
+          <label>Γ (rad/s) <input type="number" class="value-input" id="lbl-gamma" min="1e12" max="1e14" step="1e12"
+              value="3.00e+12" oninput="validateInputLive('gamma')" onchange="scheduleCompute()" onfocus="clearInput('gamma')"
+              onblur="restoreInput('gamma')"></label>
+          <input type="range" id="gamma" min="1e12" max="1e14" step="1e12" value="3e12"
+            oninput="setLabel('gamma')" onchange="scheduleCompute()">
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">FILM THICKNESS</div>
+        <div class="control-group">
+          <label>h (nm) <input type="number" class="value-input" id="lbl-h" min="10" max="1000" step="5" value="50"
+              oninput="validateInput('h')" onchange="scheduleCompute()" onfocus="clearInput('h')" onblur="restoreInput('h')"></label>
+          <input type="range" id="h" min="10" max="1000" step="5" value="50"
+            oninput="setLabel('h')" onchange="scheduleCompute()">
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">FIELD PROFILE & SAMPLING</div>
+        <div class="control-group">
+          <label>Selected f (THz) <input type="number" class="value-input" id="lbl-freq_thz" min="1" max="40"
+              step="0.1" value="10.0" oninput="validateInput('freq_thz')" onchange="checkFreqBounds()" onfocus="clearInput('freq_thz')"
+              onblur="restoreInput('freq_thz')"></label>
+          <input type="range" id="freq_thz" min="1" max="40" step="0.1" value="10"
+            oninput="setLabel('freq_thz')" onchange="checkFreqBounds()">
+        </div>
+        <div id="computed-box"
+          style="margin-top:12px; font-size:0.75rem; color:var(--text); background:var(--bg); padding:10px; border-radius:6px; border:1px solid var(--border); font-family:var(--font-mono);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+            <div
+              style="color:var(--muted); font-family:'Inter', sans-serif; font-size:0.65rem; letter-spacing:0.05em; font-weight:700;">
+              COMPUTED AT SELECTED FREQUENCY</div>
+            <button class="btn" style="padding: 2px 6px; font-size: 0.6rem; font-family:'Inter',sans-serif;"
+              onclick="document.getElementById('computed-modal').style.display='flex'">Explain</button>
+          </div>
+          <div style="margin-bottom:4px"><span style="color:var(--accent1);font-weight:bold;">β₁</span> = <span
+              id="v-b1">-</span> rad/m</div>
+          <div style="margin-bottom:6px"><span style="color:var(--accent2);font-weight:bold;">β₂</span> = <span
+              id="v-b2">-</span> rad/m</div>
+          <div style="margin-bottom:4px"><span style="color:var(--accent3);font-weight:bold;">βL₁</span> = <span
+              id="v-bl1">-</span> rad/m</div>
+          <div style="margin-bottom:6px"><span style="color:var(--accent4);font-weight:bold;">βL₂</span> = <span
+              id="v-bl2">-</span> rad/m</div>
+          <div style="color:var(--muted);font-size:0.7rem;">ε_m = <span id="v-epsm">-</span></div>
+          <div
+            style="color:var(--muted);font-size:0.7rem; margin-top:6px; border-top:1px solid #30363d; padding-top:6px;">
+            ε₁ = <span id="v-eps1">-</span><br>
+            ε₃ = <span id="v-eps3">-</span><br>
+            ω_p = <span id="v-omegap">-</span> rad/s<br>
+            Γ = <span id="v-gamma">-</span> rad/s<br>
+            h = <span id="v-h">-</span> nm<br>
+            ω = <span id="v-omega">-</span> rad/s (<span id="v-omega-thz">-</span> THz)<br>
+            Lₚ(β₁) = <span id="v-lp1">-</span> m<br>
+            Lₚ(β₂) = <span id="v-lp2">-</span> m<br>
+            Lₚ(βL₁) = <span id="v-lpl1">-</span> m<br>
+            Lₚ(βL₂) = <span id="v-lpl2">-</span> m
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">LEGEND</div>
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-line" style="background:var(--accent1)"></div>
+            <span>Mode β₁ — SP₁ (ε₁ side)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line" style="background:var(--accent2)"></div>
+            <span>Mode β₂ — SP₃ (ε₃ side)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line" style="background:var(--accent3)"></div>
+            <span>Mode βL₁ — leaky (+S₁, −S₃)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line" style="background:var(--accent4)"></div>
+            <span>Mode βL₂ — leaky (−S₁, +S₃)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dashed" style="border-color:var(--accent1)"></div>
+            <span>SP₁(∞) single-interface</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dashed" style="border-color:var(--accent2)"></div>
+            <span>SP₃(∞) single-interface</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dashed" style="border-color:var(--muted)"></div>
+            <span>Light lines</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line" style="background:var(--accent3)"></div>
+            <span>Re(ε_m) permittivity</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line" style="background:var(--accent4)"></div>
+            <span>Im(ε_m) permittivity</span>
+          </div>
+        </div>
+      </div>
+
+      <span id="compute-status" class="computing"></span>
+      <div id="phys-warning"
+        style="display:none; font-size:0.72rem; color:var(--accent2); line-height:1.35; border:1px solid rgba(255,123,114,.35); background:rgba(255,123,114,.08); border-radius:6px; padding:8px;">
+        Physical guidance: use ε₁ &gt; ε₃ for bound SP mode interpretation.
+      </div>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="compute()">↺ Recompute</button>
+        <button class="btn" style="flex:1;" onclick="resetDefaults()">Reset</button>
+      </div>
+      <div
+        style="margin-top:24px; text-align:center; font-size:0.75rem; color:var(--muted); font-family:var(--font-mono);">
+        Created by <strong>Emanuele Nardone</strong>
+      </div>
+    </aside>
+
+    <!-- ── SIDEBAR RESIZER ── -->
+    <div id="sidebar-resizer"></div>
+
+    <!-- ── CANVAS GRID ── -->
+    <div class="canvas-area">
+      <div class="plot-card">
+        <div class="plot-title">
+          <span>Dispersion: ω (Frequency) vs β_R (Real propagation)</span>
+          <button class="btn" style="padding: 2px 6px; font-size: 0.6rem; font-family:'Inter',sans-serif;" onclick="exportData('dispersion')">📥 Export</button>
+        </div>
+        <canvas id="c-disp"></canvas>
+        <div class="status-bar" id="stat-disp"></div>
+      </div>
+      <div class="plot-card">
+        <div class="plot-title">
+          <span>Attenuation: ω (Frequency) vs β_I (Losses)</span>
+          <button class="btn" style="padding: 2px 6px; font-size: 0.6rem; font-family:'Inter',sans-serif;" onclick="exportData('attenuation')">📥 Export</button>
+        </div>
+        <canvas id="c-atten"></canvas>
+      </div>
+      <div class="plot-card">
+        <div class="plot-title">
+          <span>Drude Permittivity ε_m(ω): Re(ε_m) and Im(ε_m)</span>
+          <button class="btn" style="padding: 2px 6px; font-size: 0.6rem; font-family:'Inter',sans-serif;" onclick="exportData('drude')">📥 Export</button>
+        </div>
+        <canvas id="c-drude"></canvas>
+      </div>
+      <div class="plot-card">
+        <div class="plot-title">
+          <span>Field profile |f(z)|² at selected frequency</span>
+          <button class="btn" style="padding: 2px 6px; font-size: 0.6rem; font-family:'Inter',sans-serif;" onclick="exportData('field')">📥 Export</button>
+        </div>
+        <canvas id="c-field"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  PHYSICS ENGINE  (JS port of the C++ library)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ── Zoom/Pan State ─────────────────────────────────────────────────────────
+    const PlotUserBounds = { 'c-disp': null, 'c-atten': null, 'c-drude': null, 'c-field': null };
+    const PlotVisibleBounds = { 'c-disp': null, 'c-atten': null, 'c-drude': null, 'c-field': null };
+    const PlotHoverState = { 'c-disp': null, 'c-atten': null, 'c-drude': null, 'c-field': null };
+
+    // ── Complex Math Utilities ──────────────────────────────────────────────────
+    const ComplexMath = {
+      c: (re, im = 0) => ({ re, im }),
+      cadd: (a, b) => ({ re: a.re + b.re, im: a.im + b.im }),
+      csub: (a, b) => ({ re: a.re - b.re, im: a.im - b.im }),
+      cmul: (a, b) => ({ re: a.re * b.re - a.im * b.im, im: a.re * b.im + a.im * b.re }),
+      cdiv: (a, b) => {
+        const d = b.re * b.re + b.im * b.im;
+        return { re: (a.re * b.re + a.im * b.im) / d, im: (a.im * b.re - a.re * b.im) / d };
+      },
+      cabs: (a) => Math.hypot(a.re, a.im),
+      cneg: (a) => ({ re: -a.re, im: -a.im }),
+      cscale: (a, s) => ({ re: a.re * s, im: a.im * s }),
+      csqrt: (z) => {
+        // Principal square root, then enforce Re >= 0
+        const r = Math.hypot(z.re, z.im);
+        let re = Math.sqrt((r + z.re) / 2);
+        let im = Math.sign(z.im || 1) * Math.sqrt((r - z.re) / 2);
+        if (re < 0) { re = -re; im = -im; }
+        if (re === 0 && im < 0) im = -im;
+        return { re, im };
+      },
+      ctanh: (z) => {
+        // tanh(a+ib) = (tanh a + i tan b) / (1 + i tanh a tan b)
+        const ta = Math.tanh(z.re), tb = Math.tan(z.im);
+        const num = { re: ta, im: tb };
+        const den = { re: 1, im: ta * tb };
+        return ComplexMath.cdiv(num, den);
+      },
+      ccosh: (z) => ({ re: Math.cosh(z.re) * Math.cos(z.im), im: Math.sinh(z.re) * Math.sin(z.im) }),
+      csinh: (z) => ({ re: Math.sinh(z.re) * Math.cos(z.im), im: Math.cosh(z.re) * Math.sin(z.im) }),
+      cexp: (z) => {
+        const r = Math.exp(z.re);
+        return { re: r * Math.cos(z.im), im: r * Math.sin(z.im) };
+      }
+    };
+    const { c, cadd, csub, cmul, cdiv, cabs, cneg, cscale, csqrt, ctanh, ccosh, csinh, cexp } = ComplexMath;
+
+    function drudeEps(omega, omega_p, gamma) {
+      const denom = cmul(c(omega), c(omega, gamma));
+      const frac = cdiv(c(omega_p * omega_p), denom);
+      return csub(c(1), frac);
+    }
+
+    function computeS(beta, eps, k0) {
+      const b2 = cmul(beta, beta);
+      const ek2 = cscale(eps, k0 * k0);
+      return csqrt(csub(b2, ek2));
+    }
+
+    function createDispResidualSigned(k0, eps1, eps3, epsM, h, signS1 = 1, signS3 = 1) {
+      const eMsq = cmul(epsM, epsM);
+      const eps1eps3 = eps1 * eps3;
+      const k0sq = k0 * k0;
+      const ek1 = c(eps1 * k0sq);
+      const ek3 = c(eps3 * k0sq);
+      const ekM = cscale(epsM, k0sq);
+
+      return function(beta) {
+        const b2 = cmul(beta, beta);
+        const S1b = csqrt(csub(b2, ek1));
+        const S2 = csqrt(csub(b2, ekM));
+        const S3b = csqrt(csub(b2, ek3));
+
+        const S1 = signS1 >= 0 ? S1b : cneg(S1b);
+        const S3 = signS3 >= 0 ? S3b : cneg(S3b);
+
+        const th = ctanh(cscale(S2, h));
+        const S2sq = cmul(S2, S2);
+
+        const t1a = cscale(S2sq, eps1eps3);
+        const t1b = cmul(eMsq, cmul(S1, S3));
+        const term1 = cmul(th, cadd(t1a, t1b));
+
+        const t2i = cadd(cscale(S3, eps1), cscale(S1, eps3));
+        const term2 = cmul(S2, cmul(epsM, t2i));
+
+        return cadd(term1, term2);
+      };
+    }
+
+    // ── Single-interface limit ───────────────────────────────────────────────────
+    function singleBeta(epsi, epsM, k0) {
+      const num = epsM;
+      const den = cadd(epsM, c(epsi));
+      const ratio = csqrt(cdiv(num, den));
+      let b = cscale(cmul(c(Math.sqrt(epsi)), ratio), k0);
+      if (b.re < 0) b = cneg(b);
+      return b;
+    }
+
+    // ── Muller's method ──────────────────────────────────────────────────────
+    function muller(F, guess, tol = 1e-12, maxIter = 500) {
+      const p = 1e-3;
+      let x0 = cscale(guess, 1 - p);
+      let x1 = { ...guess };
+      let x2 = cscale(guess, 1 + p);
+      if (cabs(guess) < 1e-30) { x0 = c(-p); x1 = c(0); x2 = c(p); }
+
+      let f0 = F(x0);
+      let f1 = F(x1);
+
+      for (let iter = 0; iter < maxIter; iter++) {
+        const f2 = F(x2);
+        const h1 = csub(x1, x0), h2 = csub(x2, x1);
+        const d1 = cdiv(csub(f1, f0), h1);
+        const d2 = cdiv(csub(f2, f1), h2);
+        const a = cdiv(csub(d2, d1), cadd(h2, h1));
+        const b = cadd(d2, cmul(h2, a));
+        const cc = f2;
+        const disc = csqrt(csub(cmul(b, b), cscale(cmul(a, cc), 4)));
+        const dp = cadd(b, disc), dm = csub(b, disc);
+        const denom = cabs(dp) >= cabs(dm) ? dp : dm;
+        if (cabs(denom) < 1e-300) break;
+        const dx = cdiv(cscale(cc, -2), denom);
+        const x3 = cadd(x2, dx);
+        if (cabs(dx) < tol * cabs(x3)) return x3;
+
+        x0 = x1; f0 = f1;
+        x1 = x2; f1 = f2;
+        x2 = x3;
+      }
+      return x2;
+    }
+
+    // ── h-continuation for thin film roots ───────────────────────────────────
+    function hContinuation(k0, eps1, eps3, epsM, target_h, guess, signS1 = 1, signS3 = 1) {
+      if (target_h >= 10.0) {
+        return muller(createDispResidualSigned(k0, eps1, eps3, epsM, target_h, signS1, signS3), guess);
+      }
+      let h_start = 10.0;
+      let beta = muller(createDispResidualSigned(k0, eps1, eps3, epsM, h_start, signS1, signS3), guess);
+
+      const n_steps = Math.max(20, Math.floor(10.0 * Math.log(h_start / Math.max(target_h, 1e-4))));
+      for (let t = 1; t <= n_steps; t++) {
+        let h_curr = h_start * Math.pow(target_h / h_start, t / n_steps);
+        const F = createDispResidualSigned(k0, eps1, eps3, epsM, h_curr, signS1, signS3);
+        let next_beta = muller(F, beta);
+        let F_val = F(next_beta);
+        if (cabs(F_val) > 1e-3 || !isFinite(next_beta.re) || !isFinite(next_beta.im)) {
+          let rec_guess = singleBeta(signS3 > 0 ? eps3 : eps1, epsM, k0);
+          next_beta = muller(F, rec_guess);
+        }
+        beta = next_beta;
+      }
+      return beta;
+    }
+
+    function solveDispersion(eps1, eps3, gamma, h, N = 1000, k0min = 0.01, k0max = 0.94) {
+      if (k0min < 0.0001) k0min = 0.0001;
+      const maxIter = 500;
+      const results = [];
+      let prev1 = null, prev2 = null, prevL1 = null, prevL2 = null;
+
+      for (let i = 0; i < N; i++) {
+        const k0 = k0min + (k0max - k0min) * i / (N - 1);
+        const omega = k0;
+        const epsM = drudeEps(omega, 1.0, gamma);
+
+        let b1, b2, bL1, bL2;
+        if (i === 0) {
+          const si1 = singleBeta(eps1, epsM, k0);
+          const si3 = singleBeta(eps3, epsM, k0);
+          b1 = hContinuation(k0, eps1, eps3, epsM, h, si1, +1, +1);
+          b2 = hContinuation(k0, eps1, eps3, epsM, h, si3, +1, +1);
+          bL1 = hContinuation(k0, eps1, eps3, epsM, h, si1, +1, -1);
+          bL2 = hContinuation(k0, eps1, eps3, epsM, h, si3, -1, +1);
+        } else {
+          const Fnr = createDispResidualSigned(k0, eps1, eps3, epsM, h, +1, +1);
+          const Fl1 = createDispResidualSigned(k0, eps1, eps3, epsM, h, +1, -1);
+          const Fl2 = createDispResidualSigned(k0, eps1, eps3, epsM, h, -1, +1);
+
+          b1 = muller(Fnr, prev1, 1e-12, maxIter);
+          if (cabs(Fnr(b1)) > 1e-4) b1 = muller(Fnr, singleBeta(eps1, epsM, k0), 1e-12, maxIter);
+          if (cabs(Fnr(b1)) > 1e-4) b1 = prev1;
+
+          b2 = muller(Fnr, prev2, 1e-12, maxIter);
+          if (cabs(Fnr(b2)) > 1e-4) b2 = muller(Fnr, singleBeta(eps3, epsM, k0), 1e-12, maxIter);
+          if (cabs(Fnr(b2)) > 1e-4) b2 = prev2;
+
+          bL1 = muller(Fl1, prevL1, 1e-12, maxIter);
+          if (cabs(Fl1(bL1)) > 1e-4) bL1 = muller(Fl1, singleBeta(eps1, epsM, k0), 1e-12, maxIter);
+          if (cabs(Fl1(bL1)) > 1e-4) bL1 = prevL1;
+
+          bL2 = muller(Fl2, prevL2, 1e-12, maxIter);
+          if (cabs(Fl2(bL2)) > 1e-4) bL2 = muller(Fl2, singleBeta(eps3, epsM, k0), 1e-12, maxIter);
+          if (cabs(Fl2(bL2)) > 1e-4) bL2 = prevL2;
+        }
+
+        prev1 = b1; prev2 = b2; prevL1 = bL1; prevL2 = bL2;
+        results.push({
+          k0,
+          b1,
+          b2,
+          bL1,
+          bL2,
+          epsM,
+          sp1inf: singleBeta(eps1, epsM, k0),
+          sp3inf: singleBeta(eps3, epsM, k0)
+        });
+      }
+      return results;
+    }
+
+    function fieldProfile(z, beta, k0, eps1, eps3, epsM, h) {
+      const e1 = c(eps1), e3 = c(eps3);
+      const S1 = computeS(beta, e1, k0);
+      const S2 = computeS(beta, epsM, k0);
+      const S3 = computeS(beta, e3, k0);
+      const ratio = cdiv(cmul(S1, epsM), cmul(S2, e1));
+
+      if (z < 0) {
+        return cexp(cscale(S1, z));
+      } else if (z <= h) {
+        return cadd(ccosh(cscale(S2, z)), cmul(ratio, csinh(cscale(S2, z))));
+      } else {
+        const bracket = cadd(ccosh(cscale(S2, h)), cmul(ratio, csinh(cscale(S2, h))));
+        return cmul(bracket, cexp(cscale(S3, -(z - h))));
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  RENDER ENGINE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    let THEME = null;
+    function updateTheme() {
+      const cs = getComputedStyle(document.documentElement);
+      THEME = {
+        canvasBg: cs.getPropertyValue('--canvas-bg').trim(),
+        gridColor: cs.getPropertyValue('--grid-color').trim(),
+        tickColor: cs.getPropertyValue('--tick-color').trim(),
+        labelColor: cs.getPropertyValue('--label-color').trim(),
+        accent1: cs.getPropertyValue('--accent1').trim(),
+        accent2: cs.getPropertyValue('--accent2').trim(),
+        accent3: cs.getPropertyValue('--accent3').trim(),
+        accent4: cs.getPropertyValue('--accent4').trim(),
+        muted: cs.getPropertyValue('--muted').trim(),
+        text: cs.getPropertyValue('--text').trim(),
+        card: cs.getPropertyValue('--card').trim(),
+        border: cs.getPropertyValue('--border').trim(),
+      };
+    }
+
+    let CURVE = null;
+
+    const PARAM_DECIMALS = {
+      eps1: 3,
+      eps3: 3,
+      omegap: 1,
+      gamma: 1,
+      h: 1,
+      freq_thz: 2,
+    };
+
+    function getParam(id) { return parseFloat(document.getElementById(id).value); }
+    function getDecimals(id) { return PARAM_DECIMALS[id] ?? 3; }
+    function formatParam(id, value) { return value.toFixed(getDecimals(id)); }
+
+    function clampToSlider(id, value) {
+      const slider = document.getElementById(id);
+      const min = parseFloat(slider.min);
+      const max = parseFloat(slider.max);
+      const step = parseFloat(slider.step) || 0;
+      let out = Math.min(max, Math.max(min, value));
+      if (step > 0) {
+        out = min + Math.round((out - min) / step) * step;
+        out = Math.min(max, Math.max(min, out));
+      }
+      return out;
+    }
+
+    // Convert THz to normalized k0 relative to current omega_p
+    function freqThzToK0(fTHz) {
+      const omega = 2 * Math.PI * fTHz * 1e12;
+      return omega / getParam('omegap');
+    }
+
+    function setLabel(id) {
+      const v = getParam(id);
+      const box = document.getElementById('lbl-' + id);
+      if (!box) return;
+      if (box.tagName === 'INPUT') {
+        if (id === 'omegap' || id === 'gamma') {
+          box.value = v.toExponential(2);
+        } else {
+          box.value = formatParam(id, v);
+        }
+      } else {
+        box.textContent = formatParam(id, v);
+      }
+    }
+
+    let _typedValueMemory = {};
+
+    function clearInput(id) {
+      const box = document.getElementById('lbl-' + id);
+      if (box) {
+        _typedValueMemory[id] = box.value;
+        try { box.select(); } catch(e) {}
+      }
+    }
+
+    function restoreInput(id) {
+      const box = document.getElementById('lbl-' + id);
+      const slider = document.getElementById(id);
+      if (!box || !slider) return;
+
+      const parsed = parseFloat(box.value);
+      const sMin = parseFloat(slider.min);
+      const sMax = parseFloat(slider.max);
+      if (!Number.isFinite(parsed) || parsed < sMin || parsed > sMax) {
+        setLabel(id);
+      } else {
+        slider.value = clampToSlider(id, parsed);
+        setLabel(id);
+      }
+      hideTooltip();
+    }
+
+    const _SCI_RE = /^-?[0-9]*\.?[0-9]+([eE][+\-]?[0-9]+)?$/;
+    function validateInputLive(id) {
+      const box = document.getElementById('lbl-' + id);
+      const slider = document.getElementById(id);
+      if (!box || !slider) return;
+      const raw = box.value.trim();
+      if (!_SCI_RE.test(raw)) return;
+      const parsed = parseFloat(raw);
+      if (!Number.isFinite(parsed)) return;
+      const sMin = parseFloat(slider.min);
+      const sMax = parseFloat(slider.max);
+      if (parsed < sMin || parsed > sMax) {
+        showTooltip(box, slider.min, slider.max, id);
+      } else {
+        hideTooltip();
+        slider.value = clampToSlider(id, parsed);
+      }
+    }
+
+    let _tooltipTimeout = null;
+    function showTooltip(inputEl, min, max, id) {
+      let tooltip = document.getElementById('input-tooltip');
+      if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'input-tooltip';
+        tooltip.style.position = 'absolute';
+        tooltip.style.background = 'var(--accent2)';
+        tooltip.style.color = '#fff';
+        tooltip.style.padding = '4px 8px';
+        tooltip.style.borderRadius = '4px';
+        tooltip.style.fontSize = '0.75rem';
+        tooltip.style.fontWeight = '600';
+        tooltip.style.pointerEvents = 'none';
+        tooltip.style.zIndex = '10000';
+        tooltip.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+        tooltip.innerHTML = `<div style="position:absolute; left:-4px; top:50%; margin-top:-4px; border-width:4px 4px 4px 0; border-style:solid; border-color:transparent var(--accent2) transparent transparent;"></div><span id="tooltip-text"></span>`;
+        document.body.appendChild(tooltip);
+      }
+
+      const nameMap = {
+        'eps1': 'ε₁',
+        'eps3': 'ε₃',
+        'omegap': 'ω_p',
+        'gamma': 'Γ',
+        'h': 'Thickness',
+        'freq_thz': 'Selected f'
+      };
+      const name = nameMap[id] || id;
+
+      tooltip.querySelector('#tooltip-text').textContent = `Range for ${name} is [${min}; ${max}]`;
+      tooltip.style.display = 'block';
+
+      const rect = inputEl.getBoundingClientRect();
+      tooltip.style.left = (rect.right + 10) + 'px';
+      tooltip.style.top = (rect.top + (rect.height / 2) - 12) + 'px';
+
+      clearTimeout(_tooltipTimeout);
+      _tooltipTimeout = setTimeout(() => {
+        tooltip.style.display = 'none';
+      }, 3000);
+    }
+
+    function hideTooltip() {
+      const tooltip = document.getElementById('input-tooltip');
+      if (tooltip) tooltip.style.display = 'none';
+    }
+
+    function validateInput(id) {
+      const box = document.getElementById('lbl-' + id);
+      const slider = document.getElementById(id);
+      if (!box || !slider) return;
+
+      const parsed = parseFloat(box.value);
+      if (!Number.isFinite(parsed)) return;
+
+      const min = parseFloat(slider.min);
+      const max = parseFloat(slider.max);
+
+      if (parsed < min || parsed > max) {
+        showTooltip(box, slider.min, slider.max, id);
+      } else {
+        hideTooltip();
+        slider.value = clampToSlider(id, parsed);
+      }
+    }
+
+    // ── Generic 2D plotter ────────────────────────────────────────────────────
+    function initCanvas(id) {
+      const c = document.getElementById(id);
+      const dpr = window.devicePixelRatio || 1;
+      const rect = c.parentElement.getBoundingClientRect();
+      const titleH = c.parentElement.querySelector('.plot-title')?.offsetHeight || 30;
+      c.width = rect.width * dpr;
+      c.height = (rect.height - titleH) * dpr;
+      const ctx = c.getContext('2d');
+      ctx.scale(dpr, dpr);
+      return { ctx, W: rect.width, H: rect.height - titleH };
+    }
+
+    const PAD = { l: 100, r: 24, t: 20, b: 64 };
+
+    function worldToScreen(x, y, xmin, xmax, ymin, ymax, W, H) {
+      const px = PAD.l + (x - xmin) / (xmax - xmin) * (W - PAD.l - PAD.r);
+      const py = H - PAD.b - (y - ymin) / (ymax - ymin) * (H - PAD.t - PAD.b);
+      return [px, py];
+    }
+
+    function screenToWorld(px, py, xmin, xmax, ymin, ymax, W, H) {
+      const x = xmin + (px - PAD.l) / (W - PAD.l - PAD.r) * (xmax - xmin);
+      const y = ymin + (H - PAD.b - py) / (H - PAD.t - PAD.b) * (ymax - ymin);
+      return [x, y];
+    }
+
+    let dragStart = null;
+
+    function setupZoomPan(canvasId, redrawFunc) {
+      const canvas = document.getElementById(canvasId);
+      if (canvas.hasAttribute('data-zoom-bound')) return;
+      canvas.setAttribute('data-zoom-bound', 'true');
+
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const bounds = PlotUserBounds[canvasId] || PlotVisibleBounds[canvasId];
+        if (!bounds) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const px = e.clientX - rect.left;
+        const py = e.clientY - rect.top;
+
+        const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+        const [mx, my] = screenToWorld(px, py, bounds.xmin, bounds.xmax, bounds.ymin, bounds.ymax, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
+
+        const new_xmin = mx - (mx - bounds.xmin) * zoomFactor;
+        const new_xmax = mx + (bounds.xmax - mx) * zoomFactor;
+        const new_ymin = my - (my - bounds.ymin) * zoomFactor;
+        const new_ymax = my + (bounds.ymax - my) * zoomFactor;
+
+        PlotUserBounds[canvasId] = { xmin: new_xmin, xmax: new_xmax, ymin: new_ymin, ymax: new_ymax };
+        redrawFunc();
+      });
+
+      canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        dragStart = { px: e.clientX - rect.left, py: e.clientY - rect.top, id: canvasId };
+      });
+
+      canvas.addEventListener('mouseup', (e) => {
+        if (!dragStart || dragStart.id !== canvasId) return;
+        const rect = canvas.getBoundingClientRect();
+        const pxEnd = e.clientX - rect.left;
+        const pyEnd = e.clientY - rect.top;
+        if (Math.abs(pxEnd - dragStart.px) > 10 || Math.abs(pyEnd - dragStart.py) > 10) {
+          const bounds = PlotUserBounds[canvasId] || PlotVisibleBounds[canvasId];
+          const cW = canvas.width / (window.devicePixelRatio || 1);
+          const cH = canvas.height / (window.devicePixelRatio || 1);
+          
+          const [wX1, wY1] = screenToWorld(dragStart.px, dragStart.py, bounds.xmin, bounds.xmax, bounds.ymin, bounds.ymax, cW, cH);
+          const [wX2, wY2] = screenToWorld(pxEnd, pyEnd, bounds.xmin, bounds.xmax, bounds.ymin, bounds.ymax, cW, cH);
+          
+          if (pxEnd >= dragStart.px) {
+            PlotUserBounds[canvasId] = {
+              xmin: Math.min(wX1, wX2),
+              xmax: Math.max(wX1, wX2),
+              ymin: Math.min(wY1, wY2),
+              ymax: Math.max(wY1, wY2)
+            };
+          } else {
+            const currW = bounds.xmax - bounds.xmin;
+            const currH = bounds.ymax - bounds.ymin;
+            const selW = Math.max(1e-12, Math.abs(wX2 - wX1));
+            const scale = Math.min(8, Math.max(1.05, currW / selW));
+            
+            const centerX = 0.5 * (bounds.xmin + bounds.xmax);
+            const centerY = 0.5 * (bounds.ymin + bounds.ymax);
+            PlotUserBounds[canvasId] = {
+              xmin: centerX - 0.5 * currW * scale,
+              xmax: centerX + 0.5 * currW * scale,
+              ymin: centerY - 0.5 * currH * scale,
+              ymax: centerY + 0.5 * currH * scale
+            };
+          }
+        }
+        dragStart = null;
+        redrawFunc();
+      });
+
+      canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        PlotHoverState[canvasId] = { px: e.clientX - rect.left, py: e.clientY - rect.top };
+        redrawFunc();
+      });
+
+      canvas.addEventListener('mouseleave', () => {
+        PlotHoverState[canvasId] = null;
+        dragStart = null;
+        redrawFunc();
+      });
+
+      canvas.addEventListener('dblclick', () => {
+        PlotUserBounds[canvasId] = null;
+        redrawFunc();
+      });
+    }
+
+    function drawAxes(ctx, W, H, xmin, xmax, ymin, ymax, xlabel, ylabel) {
+      ctx.strokeStyle = THEME.gridColor; ctx.lineWidth = 1;
+      const axisFmt = (v) => { if (v === 0) return "0"; const a = Math.abs(v); return (a >= 1e4 || (a > 0 && a <= 1e-3)) ? v.toExponential(1) : v.toFixed(1); };
+      // Grid
+      ctx.setLineDash([3, 4]);
+      for (let i = 0; i <= 4; i++) {
+        const xv = xmin + (xmax - xmin) * i / 4;
+        const [px] = worldToScreen(xv, ymin, xmin, xmax, ymin, ymax, W, H);
+        ctx.beginPath(); ctx.moveTo(px, PAD.t); ctx.lineTo(px, H - PAD.b); ctx.stroke();
+        ctx.fillStyle = THEME.tickColor; ctx.font = '12px "Cambria Math", "Times New Roman", serif'; ctx.textAlign = 'center';
+        ctx.fillText(axisFmt(xv), px, H - PAD.b + 16);
+      }
+      for (let i = 0; i <= 4; i++) {
+        const yv = ymin + (ymax - ymin) * i / 4;
+        const [, py] = worldToScreen(xmin, yv, xmin, xmax, ymin, ymax, W, H);
+        ctx.beginPath(); ctx.moveTo(PAD.l, py); ctx.lineTo(W - PAD.r, py); ctx.stroke();
+        ctx.fillStyle = THEME.tickColor; ctx.font = '12px "Cambria Math", "Times New Roman", serif'; ctx.textAlign = 'right';
+        ctx.fillText(axisFmt(yv), PAD.l - 8, py + 4);
+      }
+      ctx.setLineDash([]);
+      // Axes labels
+      ctx.fillStyle = THEME.labelColor; ctx.font = 'italic 14px "Cambria Math", "Times New Roman", serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(xlabel, PAD.l + (W - PAD.l - PAD.r) / 2, H - 8);
+      ctx.save(); ctx.translate(16, PAD.t + (H - PAD.t - PAD.b) / 2);
+      ctx.rotate(-Math.PI / 2); ctx.fillText(ylabel, 0, 0); ctx.restore();
+    }
+
+    function plotLine(ctx, xs, ys, xmin, xmax, ymin, ymax, W, H, color, dash = []) {
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash(dash);
+      ctx.beginPath();
+      let first = true;
+      for (let i = 0; i < xs.length; i++) {
+        if (!isFinite(xs[i]) || !isFinite(ys[i])) { first = true; continue; }
+        const [px, py] = worldToScreen(xs[i], ys[i], xmin, xmax, ymin, ymax, W, H);
+        first ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        first = false;
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    function drawInteractiveCursor(ctx, canvasId, W, H, xmin, xmax, ymin, ymax, snapAxis, datasets) {
+      const hover = PlotHoverState[canvasId];
+      if (!hover) return;
+
+      const [mouseWorldX, mouseWorldY] = screenToWorld(hover.px, hover.py, xmin, xmax, ymin, ymax, W, H);
+
+      if (hover.px < PAD.l || hover.px > W - PAD.r || hover.py < PAD.t || hover.py > H - PAD.b) return;
+
+      let closestIdx = -1;
+      let minDiff = Infinity;
+      let snapWorldValue = 0;
+
+      const refData = datasets[0];
+      if (!refData) return;
+      const isXPrimary = snapAxis === 'x';
+
+      for (let i = 0; i < refData.xs.length; i++) {
+        const val = isXPrimary ? refData.xs[i] : refData.ys[i];
+        const target = isXPrimary ? mouseWorldX : mouseWorldY;
+        const diff = Math.abs(val - target);
+        
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestIdx = i;
+          snapWorldValue = val;
+        }
+      }
+
+      if (closestIdx === -1) return;
+
+      ctx.save();
+      ctx.strokeStyle = THEME.muted;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+
+      let snapPx, snapPy;
+      if (isXPrimary) {
+        [snapPx] = worldToScreen(snapWorldValue, 0, xmin, xmax, ymin, ymax, W, H);
+        ctx.moveTo(snapPx, PAD.t);
+        ctx.lineTo(snapPx, H - PAD.b);
+      } else {
+        [, snapPy] = worldToScreen(0, snapWorldValue, xmin, xmax, ymin, ymax, W, H);
+        ctx.moveTo(PAD.l, snapPy);
+        ctx.lineTo(W - PAD.r, snapPy);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const valuesToDisplay = [];
+      datasets.forEach(ds => {
+        const x = ds.xs[closestIdx];
+        const y = ds.ys[closestIdx];
+        if (!isFinite(x) || !isFinite(y)) return;
+
+        const [px, py] = worldToScreen(x, y, xmin, xmax, ymin, ymax, W, H);
+        if (px >= PAD.l && px <= W - PAD.r && py >= PAD.t && py <= H - PAD.b) {
+          ctx.beginPath();
+          ctx.arc(px, py, 4, 0, 2 * Math.PI);
+          ctx.fillStyle = THEME.card;
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = ds.color;
+          ctx.stroke();
+        }
+
+        valuesToDisplay.push({
+          label: ds.label,
+          val: ds.valFmt ? ds.valFmt(x, y) : (isXPrimary ? y : x),
+          color: ds.color,
+          unit: ds.unit || ''
+        });
+      });
+
+      // Draw Tooltip Box
+      ctx.font = '700 9.5px "JetBrains Mono", "Fira Code", monospace';
+      ctx.textAlign = 'left';
+
+      let maxW = 0;
+      const rowHeight = 16;
+
+      const formatVal = v => {
+        const va = Math.abs(v);
+        return (va === 0) ? "0" : ((va < 1e-3 || va >= 1e4) ? v.toExponential(3) : v.toFixed(3));
+      };
+
+      const titleMeta = {
+        'c-disp': { label: 'ω', unit: 'rad/s' },
+        'c-atten': { label: 'ω', unit: 'rad/s' },
+        'c-drude': { label: 'ω', unit: 'rad/s' },
+        'c-field': { label: 'z', unit: 'nm' }
+      }[canvasId] || { label: 'Val', unit: '' };
+
+      const titleText = `${titleMeta.label}: ${formatVal(snapWorldValue)}${titleMeta.unit ? ' ' + titleMeta.unit : ''}`;
+      maxW = Math.max(maxW, ctx.measureText(titleText).width);
+
+      valuesToDisplay.forEach(item => {
+        let valStr = '';
+        if (typeof item.val === 'number') {
+          valStr = formatVal(item.val);
+        } else {
+          valStr = item.val;
+        }
+        const text = `${item.label}: ${valStr}${item.unit ? ' ' + item.unit : ''}`;
+        maxW = Math.max(maxW, ctx.measureText(text).width);
+        item.valStr = valStr;
+        item.textToDraw = text;
+      });
+
+      const boxW = maxW + 40;
+      const boxH = 30 + valuesToDisplay.length * rowHeight;
+
+      let tipX = hover.px + 15;
+      let tipY = hover.py + 15;
+
+      if (tipX + boxW > W - PAD.r) tipX = hover.px - boxW - 15;
+      if (tipY + boxH > H - PAD.b) tipY = hover.py - boxH - 15;
+
+      if (ctx.filter !== undefined) {
+        ctx.save();
+        ctx.filter = 'blur(4px)';
+        ctx.fillStyle = THEME.card;
+        ctx.globalAlpha = 0.5;
+        if (ctx.roundRect) ctx.roundRect(tipX, tipY, boxW, boxH, 6);
+        else ctx.rect(tipX, tipY, boxW, boxH);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.fillStyle = THEME.card;
+      ctx.globalAlpha = 0.85;
+
+      ctx.shadowColor = 'rgba(0,0,0,0.15)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 4;
+
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(tipX, tipY, boxW, boxH, 6);
+      else ctx.rect(tipX, tipY, boxW, boxH);
+      ctx.fill();
+
+      ctx.globalAlpha = 1.0;
+      ctx.strokeStyle = THEME.border;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.shadowColor = 'transparent';
+
+      ctx.fillStyle = THEME.muted;
+      ctx.fillText(titleText, tipX + 10, tipY + 16);
+
+      ctx.beginPath();
+      ctx.moveTo(tipX + 10, tipY + 24);
+      ctx.lineTo(tipX + boxW - 10, tipY + 24);
+      ctx.strokeStyle = THEME.border;
+      ctx.stroke();
+
+      valuesToDisplay.forEach((item, idx) => {
+        const py = tipY + 40 + idx * rowHeight;
+
+        ctx.beginPath();
+        ctx.arc(tipX + 14, py - 3.5, 3.5, 0, 2 * Math.PI);
+        ctx.fillStyle = item.color;
+        ctx.fill();
+
+        ctx.fillStyle = THEME.text;
+        ctx.fillText(item.textToDraw, tipX + 26, py);
+      });
+
+      if (typeof dragStart !== 'undefined' && dragStart && dragStart.id === canvasId) {
+        ctx.fillStyle = 'rgba(88, 166, 255, 0.15)';
+        const wDrag = hover.px - dragStart.px;
+        const hDrag = hover.py - dragStart.py;
+        ctx.fillRect(dragStart.px, dragStart.py, wDrag, hDrag);
+        ctx.strokeStyle = 'rgba(88, 166, 255, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(dragStart.px, dragStart.py, wDrag, hDrag);
+      }
+
+      ctx.restore();
+    }
+
+    function drawDispersion(curve, eps1, eps3) {
+      if (!THEME) updateTheme();
+      const { ctx, W, H } = initCanvas('c-disp');
+      ctx.fillStyle = THEME.canvasBg; ctx.fillRect(0, 0, W, H);
+
+      const phys_omegap = getParam('omegap');
+      const c_light = 299792458.0;
+      const toBeta = b => b * phys_omegap / c_light;
+      const omegas = curve.map(p => p.k0 * phys_omegap);
+
+      const bR1 = curve.map(p => toBeta(p.b1.re));
+      const bR2 = curve.map(p => toBeta(p.b2.re));
+      const bRL1 = curve.map(p => toBeta(p.bL1.re));
+      const bRL2 = curve.map(p => toBeta(p.bL2.re));
+
+      const allB = [...bR1, ...bR2, ...bRL1, ...bRL2].filter(b => isFinite(b) && b > 0 && b < 1e15); // increased limit
+      let xmax = allB.length ? Math.max(toBeta(5), Math.max(...allB) * 1.05) : toBeta(5);
+      let xmin = 0;
+      let ymax = omegas.length ? Math.max(...omegas) : phys_omegap * 0.99;
+      let ymin = omegas.length ? Math.min(...omegas) : phys_omegap * 0.01;
+
+      if (PlotUserBounds['c-disp']) {
+        ({ xmin, xmax, ymin, ymax } = PlotUserBounds['c-disp']);
+      } else {
+        PlotVisibleBounds['c-disp'] = { xmin, xmax, ymin, ymax };
+      }
+      setupZoomPan('c-disp', () => drawDispersion(CURVE, getParam('eps1'), getParam('eps3')));
+
+      drawAxes(ctx, W, H, xmin, xmax, ymin, ymax, 'β_R (rad/m)', 'ω (rad/s)');
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(PAD.l, PAD.t, W - PAD.l - PAD.r, H - PAD.t - PAD.b);
+      ctx.clip();
+
+      const c1 = THEME.accent1;
+      const c2 = THEME.accent2;
+      const c3 = THEME.accent3;
+      const c4 = THEME.accent4;
+      const cM = THEME.muted;
+
+      const N_analytic = 200;
+      const d_omegas = [], d_ll1 = [], d_ll3 = [], d_sp1 = [], d_sp3 = [];
+      const gamma_val = getParam('gamma');
+      for (let i = 0; i <= N_analytic; i++) {
+        const o = ymin + (ymax - ymin) * i / N_analytic;
+        if (o <= 0) continue;
+        d_omegas.push(o);
+        const k0 = o / phys_omegap;
+        d_ll1.push(toBeta(Math.sqrt(eps1) * k0));
+        d_ll3.push(toBeta(Math.sqrt(eps3) * k0));
+        const eM = drudeEps(o, phys_omegap, gamma_val);
+        d_sp1.push(toBeta(singleBeta(eps1, eM, k0).re));
+        d_sp3.push(toBeta(singleBeta(eps3, eM, k0).re));
+      }
+
+      plotLine(ctx, d_ll1, d_omegas, xmin, xmax, ymin, ymax, W, H, cM, [5, 5]);
+      plotLine(ctx, d_ll3, d_omegas, xmin, xmax, ymin, ymax, W, H, cM, [5, 5]);
+
+      const a1 = c1 + '73';
+      const a2 = c2 + '73';
+      plotLine(ctx, d_sp1, d_omegas, xmin, xmax, ymin, ymax, W, H, a1, [8, 4]);
+      plotLine(ctx, d_sp3, d_omegas, xmin, xmax, ymin, ymax, W, H, a2, [8, 4]);
+
+      plotLine(ctx, bR1, omegas, xmin, xmax, ymin, ymax, W, H, c1);
+      plotLine(ctx, bR2, omegas, xmin, xmax, ymin, ymax, W, H, c2);
+      plotLine(ctx, bRL1, omegas, xmin, xmax, ymin, ymax, W, H, c3);
+      plotLine(ctx, bRL2, omegas, xmin, xmax, ymin, ymax, W, H, c4);
+
+      ctx.restore();
+
+      drawInteractiveCursor(ctx, 'c-disp', W, H, xmin, xmax, ymin, ymax, 'y', [
+        { xs: bR1, ys: omegas, color: c1, label: 'SP₁', unit: 'rad/m' },
+        { xs: bR2, ys: omegas, color: c2, label: 'SP₃', unit: 'rad/m' },
+        { xs: bRL1, ys: omegas, color: c3, label: 'Leaky₁', unit: 'rad/m' },
+        { xs: bRL2, ys: omegas, color: c4, label: 'Leaky₂', unit: 'rad/m' }
+      ]);
+
+      const selOmega = 2 * Math.PI * getParam('freq_thz') * 1e12;
+      const [, py] = worldToScreen(0, selOmega, xmin, xmax, ymin, ymax, W, H);
+      ctx.strokeStyle = THEME.muted; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(PAD.l, py); ctx.lineTo(W - PAD.r, py); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // ── Attenuation plot ───────────────────────────────────────────────────────
+    function drawAttenuation(curve) {
+      if (!THEME) updateTheme();
+      const { ctx, W, H } = initCanvas('c-atten');
+      ctx.fillStyle = THEME.canvasBg; ctx.fillRect(0, 0, W, H);
+
+      const phys_omegap = getParam('omegap');
+      const c_light = 299792458.0;
+      const toBeta = b => b * phys_omegap / c_light;
+      const omegas = curve.map(p => p.k0 * phys_omegap);
+
+      const bI1 = curve.map(p => toBeta(Math.abs(p.b1.im)));
+      const bI2 = curve.map(p => toBeta(Math.abs(p.b2.im)));
+      const bIL1 = curve.map(p => toBeta(Math.abs(p.bL1.im)));
+      const bIL2 = curve.map(p => toBeta(Math.abs(p.bL2.im)));
+
+      const validI = [...bI1, ...bI2, ...bIL1, ...bIL2].filter(b => isFinite(b) && b >= 0 && b < 1e15); // increased limit
+      let xmax = validI.length ? Math.max(toBeta(0.1), Math.max(...validI) * 1.1) : toBeta(0.1);
+      let ymax = omegas.length ? Math.max(...omegas) : phys_omegap * 0.99;
+      let ymin = omegas.length ? Math.min(...omegas) : phys_omegap * 0.01;
+      let xmin = 0;
+
+      if (PlotUserBounds['c-atten']) {
+        ({ xmin, xmax, ymin, ymax } = PlotUserBounds['c-atten']);
+      } else {
+        PlotVisibleBounds['c-atten'] = { xmin, xmax, ymin, ymax };
+      }
+      setupZoomPan('c-atten', () => drawAttenuation(CURVE));
+
+      drawAxes(ctx, W, H, xmin, xmax, ymin, ymax, 'β_I (rad/m) [Losses]', 'ω (rad/s)');
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(PAD.l, PAD.t, W - PAD.l - PAD.r, H - PAD.t - PAD.b);
+      ctx.clip();
+
+      const c1 = THEME.accent1;
+      const c2 = THEME.accent2;
+      const c3 = THEME.accent3;
+      const c4 = THEME.accent4;
+
+      plotLine(ctx, bI1, omegas, xmin, xmax, ymin, ymax, W, H, c1);
+      plotLine(ctx, bI2, omegas, xmin, xmax, ymin, ymax, W, H, c2);
+      plotLine(ctx, bIL1, omegas, xmin, xmax, ymin, ymax, W, H, c3);
+      plotLine(ctx, bIL2, omegas, xmin, xmax, ymin, ymax, W, H, c4);
+
+      ctx.restore();
+
+      drawInteractiveCursor(ctx, 'c-atten', W, H, xmin, xmax, ymin, ymax, 'y', [
+        { xs: bI1, ys: omegas, color: c1, label: 'Loss₁', unit: 'rad/m' },
+        { xs: bI2, ys: omegas, color: c2, label: 'Loss₃', unit: 'rad/m' },
+        { xs: bIL1, ys: omegas, color: c3, label: 'LossL₁', unit: 'rad/m' },
+        { xs: bIL2, ys: omegas, color: c4, label: 'LossL₂', unit: 'rad/m' }
+      ]);
+    }
+
+    // ── Drude permittivity plot ────────────────────────────────────────────────
+    function drawDrude(curve) {
+      if (!THEME) updateTheme();
+      const { ctx, W, H } = initCanvas('c-drude');
+      ctx.fillStyle = THEME.canvasBg; ctx.fillRect(0, 0, W, H);
+
+      const phys_omegap = getParam('omegap');
+      const omegas = curve.map(p => p.k0 * phys_omegap);
+      const reM = curve.map(p => p.epsM.re);
+      const imM = curve.map(p => p.epsM.im);
+
+      let rawYmin = Math.min(...reM, -0.1) * 1.1;
+      let rawYmax = Math.max(...imM, 0.1) * 1.1;
+      let ymin = Math.max(rawYmin, -50);
+      let ymax = Math.min(rawYmax, 50);
+      let xmax = omegas.length ? Math.max(...omegas) * 1.05 : phys_omegap * 0.96;
+      let xmin = 0;
+
+      if (PlotUserBounds['c-drude']) {
+        ({ xmin, xmax, ymin, ymax } = PlotUserBounds['c-drude']);
+      } else {
+        PlotVisibleBounds['c-drude'] = { xmin, xmax, ymin, ymax };
+      }
+      setupZoomPan('c-drude', () => drawDrude(CURVE));
+
+      let N_analytic = 200;
+      let d_omegas = [], d_reM = [], d_imM = [];
+      let evalXmin = xmin, evalXmax = xmax;
+      
+      const drB = PlotUserBounds['c-drude'];
+      if (drB) {
+        evalXmin -= (xmax - xmin) * 0.5;
+        evalXmax += (xmax - xmin) * 0.5;
+        N_analytic = 300;
+      }
+      
+      for (let i = 0; i <= N_analytic; i++) {
+        const o = evalXmin + (evalXmax - evalXmin) * i / N_analytic;
+        if (o <= 0) continue;
+        d_omegas.push(o);
+        const eM = drudeEps(o, phys_omegap, getParam('gamma'));
+        d_reM.push(eM.re);
+        d_imM.push(eM.im);
+      }
+
+      drawAxes(ctx, W, H, xmin, xmax, ymin, ymax, 'ω (rad/s)', 'ε_m');
+      const [, py0] = worldToScreen(0, 0, xmin, xmax, ymin, ymax, W, H);
+      const zeroLineColor = THEME.border;
+      ctx.strokeStyle = zeroLineColor; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(PAD.l, py0); ctx.lineTo(W - PAD.r, py0); ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(PAD.l, PAD.t, W - PAD.l - PAD.r, H - PAD.t - PAD.b);
+      ctx.clip();
+
+      const c3 = THEME.accent3;
+      const c4 = THEME.accent4;
+
+      plotLine(ctx, d_omegas, d_reM, xmin, xmax, ymin, ymax, W, H, c3);
+      plotLine(ctx, d_omegas, d_imM, xmin, xmax, ymin, ymax, W, H, c4);
+
+      ctx.restore();
+
+      drawInteractiveCursor(ctx, 'c-drude', W, H, xmin, xmax, ymin, ymax, 'x', [
+        { xs: d_omegas, ys: d_reM, color: c3, label: 'Re(ε_m)', unit: '' },
+        { xs: d_omegas, ys: d_imM, color: c4, label: 'Im(ε_m)', unit: '' }
+      ]);
+    }
+
+    // ── Field profile plot ─────────────────────────────────────────────────────
+    function checkFreqBounds() {
+      if (!CURVE || CURVE.length === 0) return;
+      const k0 = freqThzToK0(getParam('freq_thz'));
+      const current_k0max = CURVE[CURVE.length - 1].k0;
+
+      if (k0 > current_k0max * 0.95) {
+        scheduleCompute();
+      } else {
+        debouncedDrawFieldProfile();
+      }
+    }
+
+    let _fieldProfileRAF = null;
+    function debouncedDrawFieldProfile() {
+      if (_fieldProfileRAF) return;
+      _fieldProfileRAF = requestAnimationFrame(() => {
+        drawFieldProfile();
+        _fieldProfileRAF = null;
+      });
+    }
+
+    function drawFieldProfile() {
+      if (!CURVE) return;
+      if (!THEME) updateTheme();
+      const eps1 = getParam('eps1');
+      const eps3 = getParam('eps3');
+      const gamma = getParam('gamma');
+      const h_nm = getParam('h');
+      const fTHz = getParam('freq_thz');
+      const phys_omegap = getParam('omegap');
+      const k0 = freqThzToK0(fTHz);
+
+      setLabel('freq_thz');
+      let idx = 0;
+      let mind = Infinity;
+      for (let i = 0; i < CURVE.length; i++) {
+        const d = Math.abs(CURVE[i].k0 - k0);
+        if (d < mind) { mind = d; idx = i; }
+      }
+      const pt = CURVE[idx];
+
+      const { ctx, W, H } = initCanvas('c-field');
+      ctx.fillStyle = THEME.canvasBg; ctx.fillRect(0, 0, W, H);
+
+      const c_light = 299792458.0;
+      const h_norm = (h_nm * 1e-9) * phys_omegap / c_light;
+      const depsM = pt.epsM;
+
+      const propagationLength = (betaNormIm) => {
+        if (!betaNormIm || Math.abs(betaNormIm) < 1e-12) return "∞";
+        const betaPhysIm = Math.abs(betaNormIm) * phys_omegap / c_light;
+        const lp = 1.0 / (2.0 * betaPhysIm);
+        if (lp > 1.0) return lp.toFixed(2);
+        if (lp > 1e-3) return (lp * 1e3).toFixed(2) + "e-3";
+        if (lp > 1e-6) return (lp * 1e6).toFixed(2) + "e-6";
+        return lp.toExponential(2);
+      };
+
+      const zmin_norm = -h_norm * 3.0;
+      const zmax_norm = h_norm * 4.0;
+      const zmin_nm = (zmin_norm * c_light / phys_omegap) * 1e9;
+      const zmax_nm = (zmax_norm * c_light / phys_omegap) * 1e9;
+
+      const zs_nm = []; const f1s = []; const f2s = []; const fL1s = []; const fL2s = [];
+      const NPTS = 200;
+      for (let i = 0; i <= NPTS; i++) {
+        const z_norm = zmin_norm + (zmax_norm - zmin_norm) * i / NPTS;
+        zs_nm.push((z_norm * c_light / phys_omegap) * 1e9);
+        const P_val = (beta) => {
+          if (!isFinite(beta.re) || !isFinite(beta.im)) return 0;
+          const v = fieldProfile(z_norm, beta, k0, eps1, eps3, depsM, h_norm);
+          return v.re * v.re + v.im * v.im;
+        };
+        f1s.push(P_val(pt.b1));
+        f2s.push(P_val(pt.b2));
+        fL1s.push(P_val(pt.bL1));
+        fL2s.push(P_val(pt.bL2));
+      }
+
+      const validMax = (arr) => {
+        let m = 0;
+        for (let i = 0; i < arr.length; i++) {
+          if (isFinite(arr[i]) && arr[i] > m) m = arr[i];
+        }
+        return m;
+      };
+
+      const bMax = Math.max(validMax(f1s), validMax(f2s), 1e-20);
+      const lMax = Math.max(validMax(fL1s), validMax(fL2s));
+      let allMax = Math.max(bMax, lMax);
+
+      if (bMax > 1e-10 && allMax > bMax * 6.0) {
+        allMax = bMax * 6.0;
+      }
+
+      let ymax = allMax * 1.05;
+      let ymin = 0;
+      let xmax = zmax_nm;
+      let xmin = zmin_nm;
+
+      if (PlotUserBounds['c-field']) {
+        ({ xmin, xmax, ymin, ymax } = PlotUserBounds['c-field']);
+      } else {
+        PlotVisibleBounds['c-field'] = { xmin, xmax, ymin, ymax };
+      }
+      setupZoomPan('c-field', () => drawFieldProfile());
+
+      drawAxes(ctx, W, H, xmin, xmax, ymin, ymax, 'z (nm) [Depth]', '|f(z)|²');
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(PAD.l, PAD.t, W - PAD.l - PAD.r, H - PAD.t - PAD.b);
+      ctx.clip();
+
+      const [px0] = worldToScreen(0, 0, xmin, xmax, ymin, ymax, W, H);
+      const [pxh] = worldToScreen(h_nm, 0, xmin, xmax, ymin, ymax, W, H);
+
+      const vpx0 = Math.max(PAD.l, Math.min(px0, W - PAD.r));
+      const vpxh = Math.max(PAD.l, Math.min(pxh, W - PAD.r));
+
+      if (vpxh > vpx0) {
+        ctx.fillStyle = 'rgba(88,166,255,.07)';
+        ctx.fillRect(vpx0, PAD.t, vpxh - vpx0, H - PAD.t - PAD.b);
+      }
+
+      ctx.strokeStyle = 'rgba(88,166,255,.3)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      if (px0 >= PAD.l && px0 <= W - PAD.r) { ctx.moveTo(px0, PAD.t); ctx.lineTo(px0, H - PAD.b); }
+      if (pxh >= PAD.l && pxh <= W - PAD.r) { ctx.moveTo(pxh, PAD.t); ctx.lineTo(pxh, H - PAD.b); }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const cs = getComputedStyle(document.documentElement);
+      const c1 = cs.getPropertyValue('--accent1').trim();
+      const c2 = cs.getPropertyValue('--accent2').trim();
+      const c3 = cs.getPropertyValue('--accent3').trim();
+      const c4 = cs.getPropertyValue('--accent4').trim();
+
+      const P_draw = (vals, color) => {
+        if (Math.max(...vals) > 1e-10) {
+          plotLine(ctx, zs_nm, vals, xmin, xmax, ymin, ymax, W, H, color);
+        }
+      };
+      P_draw(f1s, c1); P_draw(f2s, c2); P_draw(fL1s, c3); P_draw(fL2s, c4);
+
+      ctx.restore();
+
+      drawInteractiveCursor(ctx, 'c-field', W, H, xmin, xmax, ymin, ymax, 'x', [
+        { xs: zs_nm, ys: f1s, color: c1, label: '|f_1|²', unit: 'a.u.' },
+        { xs: zs_nm, ys: f2s, color: c2, label: '|f_2|²', unit: 'a.u.' },
+        { xs: zs_nm, ys: fL1s, color: c3, label: '|f_L1|²', unit: 'a.u.' },
+        { xs: zs_nm, ys: fL2s, color: c4, label: '|f_L2|²', unit: 'a.u.' }
+      ]);
+
+      ctx.fillStyle = THEME.muted; ctx.font = 'bold italic 13px "Cambria Math", "Times New Roman", serif'; ctx.textAlign = 'center';
+
+      const midMetal = (px0 + pxh) / 2;
+      const labelY = PAD.t - 8;
+      if (midMetal >= PAD.l && midMetal <= W - PAD.r) ctx.fillText('metal', midMetal, labelY);
+      if (px0 - 24 >= PAD.l && px0 - 24 <= W - PAD.r) ctx.fillText('← ε₁', px0 - 24, labelY);
+      if (pxh + 24 >= PAD.l && pxh + 24 <= W - PAD.r) ctx.fillText('ε₃ →', pxh + 24, labelY);
+
+      const toBeta = b => b * phys_omegap / c_light;
+      const fmtComplex = (z) => {
+        const re = toBeta(z.re);
+        const im = toBeta(z.im);
+        if (!isFinite(re) || !isFinite(im)) return "-";
+        return re.toExponential(4) + (im >= 0 ? ' + ' : ' - ') + Math.abs(im).toExponential(4) + 'i';
+      };
+
+      const b1Str = fmtComplex(pt.b1);
+      const b2Str = fmtComplex(pt.b2);
+      const bL1Str = fmtComplex(pt.bL1);
+      const bL2Str = fmtComplex(pt.bL2);
+      const epsStr = pt.epsM.re.toFixed(2) + (pt.epsM.im >= 0 ? ' + ' : ' - ') + Math.abs(pt.epsM.im).toFixed(2) + 'i';
+      document.getElementById('v-b1').textContent = b1Str;
+      document.getElementById('v-b2').textContent = b2Str;
+      document.getElementById('v-bl1').textContent = bL1Str;
+      document.getElementById('v-bl2').textContent = bL2Str;
+      document.getElementById('v-epsm').textContent = epsStr;
+
+      document.getElementById('v-eps1').textContent = eps1.toFixed(3);
+      document.getElementById('v-eps3').textContent = eps3.toFixed(3);
+      document.getElementById('v-omegap').textContent = (phys_omegap).toExponential(2);
+      document.getElementById('v-gamma').textContent = (getParam('gamma')).toExponential(2);
+      document.getElementById('v-h').textContent = h_nm.toFixed(1);
+      const physOmega = k0 * phys_omegap;
+      document.getElementById('v-omega').textContent = physOmega.toExponential(2);
+      document.getElementById('v-omega-thz').textContent = (physOmega / (2 * Math.PI * 1e12)).toFixed(2);
+      document.getElementById('v-lp1').textContent = propagationLength(pt.b1.im);
+      document.getElementById('v-lp2').textContent = propagationLength(pt.b2.im);
+      document.getElementById('v-lpl1').textContent = propagationLength(pt.bL1.im);
+      document.getElementById('v-lpl2').textContent = propagationLength(pt.bL2.im);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  CONTROL FLOW
+    // ═══════════════════════════════════════════════════════════════════════════
+    let _timer = null;
+
+    function scheduleCompute() {
+      clearTimeout(_timer);
+      _timer = setTimeout(() => compute(), 20);
+    }
+
+    function updatePhysicalWarning(eps1, eps3) {
+      const box = document.getElementById('phys-warning');
+      box.style.display = eps1 <= eps3 ? 'block' : 'none';
+    }
+
+    function resetDefaults() {
+      const DEF_OMEGAP = 4.5e13; // ~7.2 THz plasma freq (THz default)
+      const DEF_GAMMA  = 3e12;
+      document.getElementById('eps1').value = 3.0;
+      document.getElementById('lbl-eps1').value = 3.0;
+      document.getElementById('eps3').value = 1.0;
+      document.getElementById('lbl-eps3').value = 1.0;
+      document.getElementById('omegap').value = DEF_OMEGAP;
+      document.getElementById('lbl-omegap').value = DEF_OMEGAP;
+      document.getElementById('gamma').value = DEF_GAMMA;
+      document.getElementById('lbl-gamma').value = DEF_GAMMA;
+      document.getElementById('h').value = 50;
+      document.getElementById('lbl-h').value = 50;
+      document.getElementById('freq_thz').value = 10;
+      document.getElementById('lbl-freq_thz').value = 10;
+
+      PlotUserBounds['c-disp'] = null;
+      PlotUserBounds['c-atten'] = null;
+      PlotUserBounds['c-drude'] = null;
+      PlotUserBounds['c-field'] = null;
+
+      setLabel('eps1');
+      setLabel('eps3');
+      setLabel('omegap');
+      setLabel('gamma');
+      setLabel('h');
+      setLabel('freq_thz');
+
+      compute();
+    }
+
+    function compute() {
+      const btn = document.getElementById('compute-status');
+      btn.textContent = "Computing dispersion (Muller's method)...";
+
+      const eps1 = getParam('eps1');
+      const eps3 = getParam('eps3');
+
+      const phys_omegap = getParam('omegap');
+      const phys_gamma = getParam('gamma');
+      const h_nm = getParam('h');
+
+      const c_light = 299792458.0;
+      const h_norm = (h_nm * 1e-9) * phys_omegap / c_light;
+      const gamma_norm = phys_gamma / phys_omegap;
+
+      updatePhysicalWarning(eps1, eps3);
+
+      setTimeout(() => {
+        let oMin = 0.01 * phys_omegap;
+        let oMax = 0.94 * phys_omegap;
+
+        const selOmega = 2 * Math.PI * getParam('freq_thz') * 1e12;
+        oMax = Math.max(oMax, selOmega * 1.05);
+
+        let k0min = Math.max(0.0001, oMin / phys_omegap);
+        let k0max = Math.max(0.94, oMax / phys_omegap);
+
+        let dynN = Math.floor(500 * (k0max - k0min) / 0.93);
+        dynN = Math.max(200, Math.min(3000, dynN));
+
+        const t0 = performance.now();
+        CURVE = solveDispersion(eps1, eps3, gamma_norm, h_norm, dynN, k0min, k0max);
+        const tf = performance.now();
+        btn.textContent = "";
+
+        drawDispersion(CURVE, eps1, eps3);
+        drawAttenuation(CURVE);
+        drawDrude(CURVE);
+        drawFieldProfile();
+
+        document.getElementById('stat-disp').textContent = `Solver completed in ${(tf - t0).toFixed(0)} ms.`;
+      }, 0);
+    }// Resize observer: redraw when layout changes
+    const ro = new ResizeObserver(() => { if (CURVE) { drawDispersion(CURVE, getParam('eps1'), getParam('eps3')); drawAttenuation(CURVE); drawDrude(CURVE); drawFieldProfile(); } });
+    document.querySelectorAll('.plot-card').forEach(el => ro.observe(el));
+
+    // ── Theme toggle ─────────────────────────────────────────────────────────
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+      const isDark = document.documentElement.classList.contains('dark');
+      document.getElementById('theme-toggle').textContent = isDark ? '☀ Light' : '🌙 Dark';
+      updateTheme();
+      if (CURVE) {
+        drawDispersion(CURVE, getParam('eps1'), getParam('eps3'));
+        drawAttenuation(CURVE);
+        drawDrude(CURVE);
+        drawFieldProfile();
+      }
+    }
+
+    // ── Initial computation ────────────────────────────────────────────────────
+    updateTheme();
+    setTimeout(compute, 100);
+
+    // ── Sidebar drag-resize ────────────────────────────────────────────────────
+    (function initSidebarResize() {
+      const sidebar = document.querySelector('.sidebar');
+      const resizer = document.getElementById('sidebar-resizer');
+      if (!sidebar || !resizer) return;
+
+      const MIN_W = 200, MAX_W = 600;
+      const stored = parseInt(sessionStorage.getItem('sidebar-width'));
+      if (stored >= MIN_W && stored <= MAX_W) sidebar.style.width = stored + 'px';
+
+      let dragging = false, startX = 0, startW = 0;
+
+      resizer.addEventListener('mousedown', (e) => {
+        dragging = true;
+        startX = e.clientX;
+        startW = sidebar.getBoundingClientRect().width;
+        resizer.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const newW = Math.min(MAX_W, Math.max(MIN_W, startW + (e.clientX - startX)));
+        sidebar.style.width = newW + 'px';
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        resizer.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        sessionStorage.setItem('sidebar-width', Math.round(sidebar.getBoundingClientRect().width));
+        // Trigger canvas redraws (ResizeObserver handles it)
+      });
+    })();
+
+    // ── Export functionality ───────────────────────────────────────────────────
+    function downloadBlob(filename, content, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function generateParamsText() {
+      const eps1 = getParam('eps1');
+      const eps3 = getParam('eps3');
+      const omegap = getParam('omegap');
+      const gamma = getParam('gamma');
+      const h_nm = getParam('h');
+      const fTHz = getParam('freq_thz');
+      const omega = freqThzToK0(fTHz) * omegap;
+
+      return `Surface Polariton Simulator Parameters\n` +
+             `---------------------------------------\n` +
+             `Epsilon 1 (Cladding)  : ${eps1.toFixed(3)}\n` +
+             `Epsilon 3 (Substrate) : ${eps3.toFixed(3)}\n` +
+             `Metal Plasma Freq w_p : ${omegap.toExponential(3)} rad/s\n` +
+             `Metal Damping Gamma   : ${gamma.toExponential(3)} rad/s\n` +
+             `Film Thickness h      : ${h_nm.toFixed(1)} nm\n` +
+             `Selected Frequency    : ${fTHz.toFixed(2)} THz (${omega.toExponential(3)} rad/s)\n`;
+    }
+
+    function exportData(type) {
+      if (!CURVE || CURVE.length === 0) {
+        alert("No data to export. Please adjust parameters to generate a curve.");
+        return;
+      }
+
+      let baseFilename = prompt("Enter a base filename for the exported data:", "plot_data");
+      if (baseFilename === null || baseFilename.trim() === "") {
+        return; // User cancelled or entered empty string
+      }
+      baseFilename = baseFilename.trim();
+      
+      const pText = generateParamsText();
+      downloadBlob(`${baseFilename}_params.txt`, pText, 'text/plain');
+
+      const phys_omegap = getParam('omegap');
+      const c_light = 299792458.0;
+      const toBeta = b => b * phys_omegap / c_light;
+      
+      let csvContent = "";
+
+      if (type === 'dispersion') {
+        csvContent = "Omega (rad/s),Frequency (THz),Re(Beta_1) (rad/m),Re(Beta_2) (rad/m),Re(Beta_L1) (rad/m),Re(Beta_L2) (rad/m)\n";
+        CURVE.forEach(p => {
+          const omega = p.k0 * phys_omegap;
+          const fTHz = omega / (2 * Math.PI * 1e12);
+          csvContent += `${omega.toExponential(6)},${fTHz.toFixed(6)},${toBeta(p.b1.re).toExponential(6)},${toBeta(p.b2.re).toExponential(6)},${toBeta(p.bL1.re).toExponential(6)},${toBeta(p.bL2.re).toExponential(6)}\n`;
+        });
+        downloadBlob(`${baseFilename}_dispersion.csv`, csvContent, 'text/csv');
+      } 
+      else if (type === 'attenuation') {
+        csvContent = "Omega (rad/s),Frequency (THz),Im(Beta_1) (rad/m),Im(Beta_2) (rad/m),Im(Beta_L1) (rad/m),Im(Beta_L2) (rad/m)\n";
+        CURVE.forEach(p => {
+          const omega = p.k0 * phys_omegap;
+          const fTHz = omega / (2 * Math.PI * 1e12);
+          csvContent += `${omega.toExponential(6)},${fTHz.toFixed(6)},${toBeta(Math.abs(p.b1.im)).toExponential(6)},${toBeta(Math.abs(p.b2.im)).toExponential(6)},${toBeta(Math.abs(p.bL1.im)).toExponential(6)},${toBeta(Math.abs(p.bL2.im)).toExponential(6)}\n`;
+        });
+        downloadBlob(`${baseFilename}_attenuation.csv`, csvContent, 'text/csv');
+      }
+      else if (type === 'drude') {
+        csvContent = "Omega (rad/s),Frequency (THz),Re(Eps_m),Im(Eps_m)\n";
+        let N_analytic = 200;
+        let oMin = 0.01 * phys_omegap;
+        let oMax = 0.96 * phys_omegap;
+        
+        let d_omegas = [];
+        for (let i = 0; i <= N_analytic; i++) {
+          const o = oMin + (oMax - oMin) * i / N_analytic;
+          if (o <= 0) continue;
+          d_omegas.push(o);
+        }
+        
+        d_omegas.forEach(o => {
+          const eM = drudeEps(o, phys_omegap, getParam('gamma'));
+          const fTHz = o / (2 * Math.PI * 1e12);
+          csvContent += `${o.toExponential(6)},${fTHz.toFixed(6)},${eM.re.toExponential(6)},${eM.im.toExponential(6)}\n`;
+        });
+        downloadBlob(`${baseFilename}_drude.csv`, csvContent, 'text/csv');
+      }
+      else if (type === 'field') {
+        const h_nm = getParam('h');
+        const fTHz = getParam('freq_thz');
+        const eps1 = getParam('eps1');
+        const eps3 = getParam('eps3');
+        const k0 = freqThzToK0(fTHz);
+        const h_norm = (h_nm * 1e-9) * phys_omegap / c_light;
+        
+        let idx = 0;
+        let mind = Infinity;
+        for (let i = 0; i < CURVE.length; i++) {
+          const d = Math.abs(CURVE[i].k0 - k0);
+          if (d < mind) { mind = d; idx = i; }
+        }
+        const pt = CURVE[idx];
+        
+        csvContent = "z (nm),|f_1|^2 (a.u.),|f_2|^2 (a.u.),|f_L1|^2 (a.u.),|f_L2|^2 (a.u.)\n";
+        const zmin_norm = -h_norm * 3.0;
+        const zmax_norm = h_norm * 4.0;
+        const NPTS = 200;
+        
+        for (let i = 0; i <= NPTS; i++) {
+          const z_norm = zmin_norm + (zmax_norm - zmin_norm) * i / NPTS;
+          const z_nm = (z_norm * c_light / phys_omegap) * 1e9;
+          
+          const P_val = (beta) => {
+            if (!isFinite(beta.re) || !isFinite(beta.im)) return 0;
+            const v = fieldProfile(z_norm, beta, k0, eps1, eps3, pt.epsM, h_norm);
+            return v.re * v.re + v.im * v.im;
+          };
+          
+          const f1 = P_val(pt.b1);
+          const f2 = P_val(pt.b2);
+          const fL1 = P_val(pt.bL1);
+          const fL2 = P_val(pt.bL2);
+          
+          csvContent += `${z_nm.toFixed(4)},${f1.toExponential(6)},${f2.toExponential(6)},${fL1.toExponential(6)},${fL2.toExponential(6)}\n`;
+        }
+        downloadBlob(`${baseFilename}_field_profile_at_${fTHz.toFixed(2)}THz.csv`, csvContent, 'text/csv');
+      }
+    }
+  </script>
+</body>
+
+</html>
