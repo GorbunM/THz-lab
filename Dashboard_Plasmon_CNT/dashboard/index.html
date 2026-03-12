@@ -707,10 +707,10 @@
       <div>
         <div class="section-title">FIELD PROFILE & SAMPLING</div>
         <div class="control-group">
-          <label>Selected f (THz) <input type="number" class="value-input" id="lbl-freq_thz" min="1" max="40"
-              step="0.1" value="10.0" oninput="validateInput('freq_thz')" onchange="checkFreqBounds()" onfocus="clearInput('freq_thz')"
+          <label>Selected f (THz) <input type="number" class="value-input" id="lbl-freq_thz" min="0.1" max="10"
+              step="0.1" value="5.0" oninput="validateInput('freq_thz')" onchange="checkFreqBounds()" onfocus="clearInput('freq_thz')"
               onblur="restoreInput('freq_thz')"></label>
-          <input type="range" id="freq_thz" min="1" max="40" step="0.1" value="10"
+          <input type="range" id="freq_thz" min="0.1" max="10" step="0.1" value="5"
             oninput="setLabel('freq_thz')" onchange="checkFreqBounds()">
         </div>
         <div id="computed-box"
@@ -1737,6 +1737,12 @@
         { xs: bIL1, ys: omegas, color: c3, label: 'LossL₁', unit: 'rad/m' },
         { xs: bIL2, ys: omegas, color: c4, label: 'LossL₂', unit: 'rad/m' }
       ]);
+
+      const selOmega = 2 * Math.PI * getParam('freq_thz') * 1e12;
+      const [, py] = worldToScreen(0, selOmega, xmin, xmax, ymin, ymax, W, H);
+      ctx.strokeStyle = THEME.muted; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(PAD.l, py); ctx.lineTo(W - PAD.r, py); ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     // ── Drude permittivity plot ────────────────────────────────────────────────
@@ -1808,9 +1814,29 @@
         { xs: d_omegas, ys: d_reM, color: c3, label: 'Re(ε_m)', unit: '' },
         { xs: d_omegas, ys: d_imM, color: c4, label: 'Im(ε_m)', unit: '' }
       ]);
+
+      const selOmega = 2 * Math.PI * getParam('freq_thz') * 1e12;
+      const [px] = worldToScreen(selOmega, 0, xmin, xmax, ymin, ymax, W, H);
+      ctx.strokeStyle = THEME.muted; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(px, PAD.t); ctx.lineTo(px, H - PAD.b); ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     // ── Field profile plot ─────────────────────────────────────────────────────
+    let _redrawRAF = null;
+    function debouncedRedrawEverything() {
+      if (_redrawRAF) return;
+      _redrawRAF = requestAnimationFrame(() => {
+        if (CURVE) {
+          drawDispersion(CURVE, getParam('eps1'), getParam('eps3'));
+          drawAttenuation(CURVE);
+          drawDrude(CURVE);
+          drawFieldProfile();
+        }
+        _redrawRAF = null;
+      });
+    }
+
     function checkFreqBounds() {
       if (!CURVE || CURVE.length === 0) return;
       const k0 = freqThzToK0(getParam('freq_thz'));
@@ -1819,17 +1845,8 @@
       if (k0 > current_k0max * 0.95) {
         scheduleCompute();
       } else {
-        debouncedDrawFieldProfile();
+        debouncedRedrawEverything();
       }
-    }
-
-    let _fieldProfileRAF = null;
-    function debouncedDrawFieldProfile() {
-      if (_fieldProfileRAF) return;
-      _fieldProfileRAF = requestAnimationFrame(() => {
-        drawFieldProfile();
-        _fieldProfileRAF = null;
-      });
     }
 
     function drawFieldProfile() {
@@ -2034,8 +2051,8 @@
       document.getElementById('lbl-gamma').value = DEF_GAMMA;
       document.getElementById('h').value = 50;
       document.getElementById('lbl-h').value = 50;
-      document.getElementById('freq_thz').value = 10;
-      document.getElementById('lbl-freq_thz').value = 10;
+      document.getElementById('freq_thz').value = 5;
+      document.getElementById('lbl-freq_thz').value = 5;
 
       PlotUserBounds['c-disp'] = null;
       PlotUserBounds['c-atten'] = null;
