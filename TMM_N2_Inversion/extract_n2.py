@@ -4,7 +4,7 @@
 Input CSV (no header): Frequency (THz), |t|^2, phase (radians)
 Output CSV (with header): Frequency (THz), n_real, n_imag
 
-Usage: python extract_n2.py <input.csv> <thickness_m> [output.csv]
+Usage: python extract_n2.py <input.csv> <thickness_m> [-p delay|arg] [-o output.csv]
 """
 
 import sys
@@ -17,7 +17,7 @@ from scipy.optimize import root
 C_LIGHT = 299792458.0          # speed of light  [m/s]
 
 # ===========================================================================
-#  USER-CONFIGURABLE PARAMETERS  (edit here instead of the command line)
+#  USER-CONFIGURABLE PARAMETERS 
 # ===========================================================================
 
 # File paths — set to strings to use them as defaults without CLI arguments;
@@ -35,6 +35,13 @@ N3 = 1.0                       # medium after slab
 
 # Solver convergence threshold
 RESIDUAL_TOL = 1e-10
+
+# Phase convention of the input data.
+#   "arg"   – column 3 is arg(t), the complex argument of t
+#   "delay" – column 3 is the optical delay phase, i.e. -arg(t),
+#             which is positive and increases with frequency.
+#             Common in THz time-domain spectroscopy.
+PHASE_CONVENTION = "delay"
 
 # ===========================================================================
 #  FORWARD MODEL
@@ -71,7 +78,16 @@ def residual(x, t_meas, freq_Hz, d):
 # ===========================================================================
 
 def to_physical_branch(x):
-    """Map to n_imag >= 0 branch using t(n2) = t(-n2)."""
+    """Map to the branch with n_imag >= 0 using t(n2) = t(-n2).
+
+    The Fabry-Perot transmission is invariant under n2 -> -n2 when
+    n1 = n3, so two roots always exist.  Selecting n_imag >= 0
+    provides stable continuity tracking across resonances.
+    When n_imag ~ 0 (transparent region), fall back to n_real > 0.
+
+    The output stage applies abs(n_real) to recover the physical
+    branch (n_real >= 0, n_imag >= 0).
+    """
     x = x.copy()
     if x[1] < -1e-12:
         x = -x
@@ -300,10 +316,25 @@ def cleanup_outliers(freq_THz, t_meas_arr, d, result, conv):
 #  MAIN SOLVER
 # ===========================================================================
 
-def solve_n2(freq_THz, T_power, phase_rad, d):
+def solve_n2(freq_THz, T_power, phase_rad, d, phase_convention="arg"):
+    """Solve for complex n2 at each frequency.
+
+    Parameters
+    ----------
+    phase_convention : str
+        "arg"   – phase_rad contains arg(t).
+        "delay" – phase_rad contains the optical delay phase = -arg(t).
+                  The sign is flipped internally so the forward model sees
+                  the correct complex transmission.
+    """
     N = len(freq_THz)
-    t_amp  = np.sqrt(T_power)
-    t_meas = t_amp * np.exp(1j * phase_rad)
+    t_amp = np.sqrt(T_power)
+
+    if phase_convention == "delay":
+        # delay phase = -arg(t), so arg(t) = -phase_rad
+        t_meas = t_amp * np.exp(-1j * phase_rad)
+    else:
+        t_meas = t_amp * np.exp(1j * phase_rad)
 
     result, conv = forward_sweep(freq_THz, t_meas, d)
     result, conv = cleanup_outliers(freq_THz, t_meas, d, result, conv)
@@ -328,28 +359,37 @@ def _build_parser() -> argparse.ArgumentParser:
             "The exact Fabry-Perot formula is inverted numerically at every frequency.\n"
             "\n"
             "INPUT FILE FORMAT  (CSV, no header, 3 columns):\n"
-            "    Frequency [THz] ,  |t|^2  ,  phase(t) [radians]\n"
+            "    Frequency [THz] ,  |t|^2  ,  phase [radians]\n"
+            "\n"
+            "PHASE CONVENTIONS (-p / --phase-convention):\n"
+            "    arg   -- column 3 = arg(t), the complex argument of t.\n"
+            "    delay -- column 3 = optical delay phase = -arg(t),\n"
+            "             positive and increasing with frequency.\n"
+            "             Common in THz time-domain spectroscopy.\n"
             "\n"
             "OUTPUT FILE FORMAT (CSV, with header, 3 columns):\n"
             "    Frequency [THz] ,  n_real  ,  n_imag\n"
+            "    (n_imag > 0 for absorbing materials, standard physics convention)\n"
             "\n"
             "CONFIGURABLE DEFAULTS (edit at the top of this file):\n"
-            "    INPUT_FILE      -- default input path\n"
-            "    OUTPUT_FILE     -- default output path\n"
-            "    SLAB_THICKNESS  -- omit the thickness CLI argument once set\n"
-            "    N1, N3          -- refractive indices of surrounding media\n"
-            "    RESIDUAL_TOL    -- solver convergence threshold"
+            "    INPUT_FILE        -- default input path\n"
+            "    OUTPUT_FILE       -- default output path\n"
+            "    SLAB_THICKNESS    -- omit the thickness CLI argument once set\n"
+            "    PHASE_CONVENTION  -- default phase convention ('arg' or 'delay')\n"
+            "    N1, N3            -- refractive indices of surrounding media\n"
+            "    RESIDUAL_TOL      -- solver convergence threshold"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "examples:\n"
             "  python extract_n2.py data.csv 100e-6\n"
-            "  python extract_n2.py data.csv 0.5e-6 -o result.csv\n"
-            "  python extract_n2.py                  # uses INPUT_FILE / SLAB_THICKNESS\n"
+            "  python extract_n2.py data.csv 80e-6 -p delay\n"
+            "  python extract_n2.py data.csv 0.5e-6 -p arg -o result.csv\n"
+            "  python extract_n2.py                  # uses built-in defaults\n"
             "\n"
             "tip:\n"
-            "  Set INPUT_FILE, OUTPUT_FILE, and SLAB_THICKNESS at the top of this\n"
-            "  file to run it without any command-line arguments."
+            "  Set INPUT_FILE, OUTPUT_FILE, SLAB_THICKNESS, and PHASE_CONVENTION\n"
+            "  at the top of this file to run it without any command-line arguments."
         ),
     )
     parser.add_argument(
@@ -379,6 +419,19 @@ def _build_parser() -> argparse.ArgumentParser:
         default=OUTPUT_FILE,
         help=f"Output CSV file (default: {OUTPUT_FILE})",
     )
+    parser.add_argument(
+        "-p", "--phase-convention",
+        choices=["arg", "delay"],
+        default=PHASE_CONVENTION,
+        dest="phase_convention",
+        help=(
+            "Phase convention of the input data. "
+            "'arg': column 3 = arg(t). "
+            "'delay': column 3 = optical delay = -arg(t), positive and "
+            "increasing with frequency (common in THz-TDS). "
+            f"(default: {PHASE_CONVENTION})"
+        ),
+    )
     return parser
 
 
@@ -401,6 +454,7 @@ def main():
     input_file  = args.input
     d           = args.thickness
     output_file = args.output
+    phase_conv  = args.phase_convention
 
     data = np.loadtxt(input_file, delimiter=',')
     freq_THz  = data[:, 0]
@@ -410,8 +464,19 @@ def main():
     print(f"Input:  {len(freq_THz)} frequency points, "
           f"{freq_THz[0]:.4f} - {freq_THz[-1]:.4f} THz")
     print(f"Slab thickness  d = {d:.4g} m  ({d*1e6:.4g} um)")
+    print(f"Phase convention: {phase_conv}")
 
-    n_real, n_imag, converged = solve_n2(freq_THz, T_power, phase_rad, d)
+    n_real, n_imag, converged = solve_n2(freq_THz, T_power, phase_rad, d,
+                                         phase_convention=phase_conv)
+
+    # The solver tracks the n_imag >= 0 branch internally for stable
+    # continuity across resonances.  This can leave n_real < 0 when
+    # the forward model's convention places absorption at n_imag < 0.
+    # Recover the physical branch (n_real >= 0, n_imag >= 0) by
+    # taking abs(n_real); since n2 and -n2 are equivalent roots,
+    # abs(n_real) paired with the already-positive n_imag gives the
+    # standard physics convention (n_imag > 0 = absorption).
+    n_real = np.abs(n_real)
 
     header = "Frequency (THz),n_real,n_imag"
     out = np.column_stack([freq_THz, n_real, n_imag])
