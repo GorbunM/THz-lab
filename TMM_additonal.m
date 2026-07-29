@@ -4,7 +4,7 @@ c = 29979245800; % speed of light in cm/s
 
 %% 2. Frequency range
 
-npt = 2000;
+npt = 300;
 nu = linspace(1.5e11, 40e12, npt);  % frequency in Hz
 
 omega = 2*pi*nu;  % angular frequency in rad/s
@@ -60,7 +60,7 @@ m = 10;
              'n0', 1);
 
     Di = struct('type', 1, ...
-                'd', 2e-4*p, ...
+                'd', 10e-4*p, ...
                 'n0', 3.5/p, ...
                 'omega_p', 0, ...
                 'tauD', 0);
@@ -75,13 +75,12 @@ m = 10;
                 'd', 1e-5, ...
                 'n0', 1, ...
                 'tau', 1e-12/(2*pi), ...
-                'omega_0', 2*pi*10.4e12, ... %2*pi*1.05e13, ...
+                'omega_0', 2*pi*10.7e12, ... %2*pi*1.05e13, ...
                 'magn', 4);
 
 %% 4. Stack construction
 
-% structure = {Air, Di, Au, Air};
-structure = {Air, TL, Di, Air};
+structure = {Air, TL, Di, Au, Air};
 N = length(structure);
 
 %% 5. Compute complex refractive index for each layer at all frequencies
@@ -131,7 +130,7 @@ end
 
 
 T = repmat(eye(2), 1, 1, npt);  % start with 2×2×N identity matrices
-Dd = [];
+
 for j = 2:N-1
     curlayer = structure{j};
     d = curlayer.d;
@@ -156,8 +155,7 @@ for j = 2:N-1
 
     P(1,1,:) = exp(1i*delta);
     P(2,2,:) = exp(-1i*delta);
-    Dd(j, :) = delta;
-
+    
     T = pagemtimes(T, P);
 end
 
@@ -210,131 +208,206 @@ ax.FontSize = 24;
 box on
 grid on
 
-% %% 8. Field and loss profiles from TMM
-% 
-% % Frequencies for comparison
-% [~, k_res] = max(A);              % resonance frequency
-% [~, k_off] = min(abs(nu - 8e12)); % off-resonance reference, change if needed
-% 
-% k_list = [k_res, k_off];
-% labels = {'resonance', 'off-resonance'};
-% 
-% profiles = struct([]);
-% 
-% for kk = 1:length(k_list)
-% 
-%     k_ind = k_list(kk);
-% 
-%     % Complex reflection amplitude, not reflectance
-%     r = Ein(1,k_ind) / Ein(2,k_ind);
-% 
-%     % Initial amplitudes in incident medium:
-%     % E(z) = E_plus exp(i beta z) + E_minus exp(-i beta z)
-%     amp = [1; r];
-% 
-%     z_all = [];
-%     E2_all = [];
-%     ploss_all = [];
-%     layer_id = [];
-% 
-%     z_offset = 0;
-% 
-%     for j = 2:N-1
-% 
-%         % Interface from layer j-1 to layer j
-%         nL = n_layers(j-1,k_ind);
-%         nR = n_layers(j,k_ind);
-% 
-%         M = 0.5 * [1 + nL/nR, 1 - nL/nR; ...
-%                    1 - nL/nR, 1 + nL/nR];
-% 
-%         % Amplitudes just inside layer j
-%         amp = M \ amp;
-% 
-%         % Local coordinate inside layer j
-%         d = structure{j}.d;
-% 
-%         dz = 1e-7;                 % spatial step in cm, 1 nm
-%         Nz = ceil(d/dz);  % number of points in current layer
-% 
-%         zloc = linspace(0, d, Nz);
-% 
-%         beta = omega(k_ind) * nR / c;
-% 
-%         E = amp(1) * exp(1i * beta * zloc) + ...
-%             amp(2) * exp(-1i * beta * zloc);
-% 
-%         E2 = abs(E).^2;
-% 
-%         % CGS loss density up to physical normalization:
-%         % q(z) = omega/(8*pi) * Im(eps) * |E|^2
-%         eps_im = imag(eps_layers(j,k_ind));
-%         ploss = omega(k_ind) / (8*pi) * eps_im * E2;
-% 
-%         z_all = [z_all, z_offset + zloc];
-%         E2_all = [E2_all, E2];
-%         ploss_all = [ploss_all, ploss];
-%         layer_id = [layer_id, j * ones(size(zloc))];
-% 
-%         % Propagate amplitudes to the right boundary of layer j
-%         P = [exp(1i * beta * d), 0; ...
-%              0, exp(-1i * beta * d)];
-% 
-%         amp = P * amp;
-% 
-%         z_offset = z_offset + d;
-%     end
-% 
-%     profiles(kk).k_ind = k_ind;
-%     profiles(kk).nu_THz = nu(k_ind) * 1e-12;
-%     profiles(kk).z = z_all;
-%     profiles(kk).ploss = ploss_all;
-%     profiles(kk).layer_id = layer_id;
-% end
-% 
-% 
-% %% 11. Power-loss density profile at resonance
-% 
-% figure
-% plot(profiles(1).z * 1e4, profiles(1).ploss, 'k', 'LineWidth', 2)
-% hold on
-% 
-% xline(z_TL, ':', 'TL/Di', 'LineWidth', 1.5, 'LabelVerticalAlignment','bottom')
-% xline(z_Di, ':', 'Di/Au', 'LineWidth', 1.5, 'LabelVerticalAlignment','bottom')
-% 
-% xlabel('z, \mum')
-% ylabel('q(z), arb. units')
-% title(['Power-loss density at \nu = ', num2str(profiles(1).nu_THz, '%.2f'), ' THz'])
-% 
-% ax = gca;
-% ax.FontSize = 24;
-% box on
-% grid on
-%%
-% Phase difference
+%% 8. Field and loss profiles from TMM
 
-% Rr = (n_layers(1:4) - n_layers(2:5))./(n_layers(1:4) + n_layers(2:5));
-% Tf = (2*n_layers(1:4))./(n_layers(1:4) + n_layers(2:5));
-% Tb = (2*n_layers(2:5))./(n_layers(1:4) + n_layers(2:5));
-% 
-% rr = unwrap(angle(Rr));
-% tf = unwrap(angle(Tf));
-% tb = unwrap(angle(Tb));
-% dd = unwrap(angle(Dd));
-% 
-% ksi = tf'+tb'+2*dd;
-% 
-% phi0 = rr(1);
-% phi1 = ksi(1, :) + rr(2);
-% phi2 = ksi(1, :) + ksi(2, :) + rr(3);
-% phi3 = ksi(1, :) + ksi(2, :) + ksi(3, :) + rr(4);
-% 
-% Phi = [phi1; phi2; phi3] - phi0;
-% Phi = Phi/pi;
-% figure
-% hold on
-% for k = 1:3
-%     plot(nuu, Phi(k, :));
-% end
-% 
-% legend
+% Frequencies for comparison
+[~, k_res] = max(A);              % resonance frequency
+[~, k_off] = min(abs(nu - 8e12)); % off-resonance reference, change if needed
+
+k_list = [k_res, k_off];
+labels = {'resonance', 'off-resonance'};
+
+profiles = struct([]);
+
+for kk = 1:length(k_list)
+
+    k_ind = k_list(kk);
+
+    % Complex reflection amplitude, not reflectance
+    r = Ein(1,k_ind) / Ein(2,k_ind);
+
+    % Initial amplitudes in incident medium:
+    % E(z) = E_plus exp(i beta z) + E_minus exp(-i beta z)
+    amp = [1; r];
+
+    z_all = [];
+    E2_all = [];
+    ploss_all = [];
+    layer_id = [];
+
+    z_offset = 0;
+
+    for j = 2:N-1
+
+        % Interface from layer j-1 to layer j
+        nL = n_layers(j-1,k_ind);
+        nR = n_layers(j,k_ind);
+
+        M = 0.5 * [1 + nL/nR, 1 - nL/nR; ...
+                   1 - nL/nR, 1 + nL/nR];
+
+        % Amplitudes just inside layer j
+        amp = M \ amp;
+
+        % Local coordinate inside layer j
+        d = structure{j}.d;
+
+        if j == 2 || j == 4
+            Nz = 300;     % thin TL / Au
+        else
+            Nz = 1000;    % dielectric spacer
+        end
+
+        zloc = linspace(0, d, Nz);
+
+        beta = omega(k_ind) * nR / c;
+
+        E = amp(1) * exp(1i * beta * zloc) + ...
+            amp(2) * exp(-1i * beta * zloc);
+
+        E2 = abs(E).^2;
+
+        % CGS loss density up to physical normalization:
+        % q(z) = omega/(8*pi) * Im(eps) * |E|^2
+        eps_im = imag(eps_layers(j,k_ind));
+        ploss = omega(k_ind) / (8*pi) * eps_im * E2;
+
+        z_all = [z_all, z_offset + zloc];
+        E2_all = [E2_all, E2];
+        ploss_all = [ploss_all, ploss];
+        layer_id = [layer_id, j * ones(size(zloc))];
+
+        % Propagate amplitudes to the right boundary of layer j
+        P = [exp(1i * beta * d), 0; ...
+             0, exp(-1i * beta * d)];
+
+        amp = P * amp;
+
+        z_offset = z_offset + d;
+    end
+
+    profiles(kk).k_ind = k_ind;
+    profiles(kk).nu_THz = nu(k_ind) * 1e-12;
+    profiles(kk).z = z_all;
+    profiles(kk).E2 = E2_all;
+    profiles(kk).ploss = ploss_all;
+    profiles(kk).layer_id = layer_id;
+end
+
+%% 9. Plot |E|^2 profile: resonance vs off-resonance
+
+figure
+hold on
+
+plot(profiles(1).z * 1e4, profiles(1).E2, 'k', ...
+     'LineWidth', 2, ...
+     'DisplayName', ['resonance, ', num2str(profiles(1).nu_THz, '%.2f'), ' THz'])
+
+plot(profiles(2).z * 1e4, profiles(2).E2, '--k', ...
+     'LineWidth', 2, ...
+     'DisplayName', ['off-resonance, ', num2str(profiles(2).nu_THz, '%.2f'), ' THz'])
+
+z_TL = structure{2}.d * 1e4;
+z_Di = (structure{2}.d + structure{3}.d) * 1e4;
+
+xline(z_TL, ':', 'TL/Di', 'LineWidth', 1.5, 'LabelVerticalAlignment','top')
+xline(z_Di, ':', 'Di/Au', 'LineWidth', 1.5, 'LabelVerticalAlignment','top')
+
+xlabel('z, \mum')
+ylabel('|E|^2 / |E_0|^2')
+title('Electric-field intensity profile')
+
+% legend('Location','best')
+ax = gca;
+ax.FontSize = 24;
+box on
+grid on
+
+%% 10. Zoom: resonant layer only
+
+figure
+hold on
+
+idx_TL_res = profiles(1).layer_id == 2;
+idx_TL_off = profiles(2).layer_id == 2;
+
+plot(profiles(1).z(idx_TL_res) * 1e4, profiles(1).E2(idx_TL_res), ...
+     'k', 'LineWidth', 2, ...
+     'DisplayName', ['resonance, ', num2str(profiles(1).nu_THz, '%.2f'), ' THz'])
+
+plot(profiles(2).z(idx_TL_off) * 1e4, profiles(2).E2(idx_TL_off), ...
+     '--k', 'LineWidth', 2, ...
+     'DisplayName', ['off-resonance, ', num2str(profiles(2).nu_THz, '%.2f'), ' THz'])
+
+xlabel('z, \mum')
+ylabel('|E|^2 / |E_0|^2')
+title('Electric-field intensity inside resonant layer')
+
+% legend('Location','best')
+ax = gca;
+ax.FontSize = 24;
+box on
+grid on
+
+%% 11. Power-loss density profile at resonance
+
+figure
+plot(profiles(1).z * 1e4, profiles(1).ploss, 'k', 'LineWidth', 2)
+hold on
+
+xline(z_TL, ':', 'TL/Di', 'LineWidth', 1.5, 'LabelVerticalAlignment','bottom')
+xline(z_Di, ':', 'Di/Au', 'LineWidth', 1.5, 'LabelVerticalAlignment','bottom')
+
+xlabel('z, \mum')
+ylabel('q(z), arb. units')
+title(['Power-loss density at \nu = ', num2str(profiles(1).nu_THz, '%.2f'), ' THz'])
+
+ax = gca;
+ax.FontSize = 24;
+box on
+grid on
+
+%% 12. Integrated absorption/loss by layers at resonance
+
+layers_to_integrate = [2, 3, 4];
+layer_names = {'TL', 'Dielectric', 'Au'};
+
+loss_int = zeros(size(layers_to_integrate));
+
+for jj = 1:length(layers_to_integrate)
+
+    j = layers_to_integrate(jj);
+    idx = profiles(1).layer_id == j;
+
+    z_j = profiles(1).z(idx);
+    q_j = profiles(1).ploss(idx);
+
+    loss_int(jj) = trapz(z_j, q_j);
+end
+
+loss_frac = loss_int / sum(loss_int);
+
+figure
+bar(loss_frac)
+
+set(gca, 'XTick', 1:length(layer_names), 'XTickLabel', layer_names)
+
+ylabel('Fraction of absorbed power')
+title(['Absorption distribution at \nu = ', num2str(profiles(1).nu_THz, '%.2f'), ' THz'])
+
+ax = gca;
+ax.FontSize = 24;
+box on
+grid on
+
+%% 13. Print numbers
+
+fprintf('\nField/loss analysis at resonance:\n')
+fprintf('nu_res = %.4f THz\n', profiles(1).nu_THz)
+fprintf('A_total = %.4f\n', A(k_res))
+fprintf('R = %.4f\n', refl(k_res))
+fprintf('T = %.4f\n\n', trans(k_res))
+
+for jj = 1:length(layer_names)
+    fprintf('%s loss fraction = %.4f\n', layer_names{jj}, loss_frac(jj))
+end
