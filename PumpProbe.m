@@ -1,8 +1,15 @@
 %% 0. Settings and data loading
 
-clear; clc; 
+clear; clc; close all;
 
-curdir = "C:\Users\mgorbun\Documents\MATLAB\pump-probe\2026-10-15 670 nm\parralel";  % Data directory
+flag_save_csv = 1;
+flag_save_png = 0;
+
+if flag_save_csv
+    writematrix()
+end
+
+curdir = "C:\Users\mgorbun\Documents\MATLAB\pump-probe\experiments2\experiments\2026-10-20_CNT701B_1113nm_30mW\perpendicular_30mW";  % Data directory
 frmin = 0.15;
 frmax = 1.8;
 % frmax = -1;
@@ -217,44 +224,44 @@ grid on;
 legend('Location','eastoutside');
 
 
-%% 5. Amplitude normalized to no pump
-% nexttile;
-% hold on;
-% 
-% yline(1, 'k--', 'No pump');
-% 
-% for j = 1:numel(idxPump)
-%     i = idxPump(j);
-%     plot(freq, abs(HnoPump{i}), ...
-%         'Color', colors(j,:), ...
-%         'DisplayName', sprintf('%g ps', delay(i)));
-% end
-% 
-% xlabel('Frequency (THz)');
-% ylabel('|E / E_{no pump}|');
-% title('Amp / no pump');
-% grid on;
-% legend('Location','eastoutside');
-% 
-% 
-%% 6. Phase normalized to no pump
-% nexttile;
-% hold on;
-% 
-% yline(0, 'k--', 'No pump');
-% 
-% for j = 1:numel(idxPump)
-%     i = idxPump(j);
-%     plot(freq, unwrap(angle(HnoPump{i})), ...
-%         'Color', colors(j,:), ...
-%         'DisplayName', sprintf('%g ps', delay(i)));
-% end
-% 
-% xlabel('Frequency (THz)');
-% ylabel('Phase (rad)');
-% title('Phase / no pump');
-% grid on;
-% legend('Location','eastoutside');
+% 5. Amplitude normalized to no pump
+nexttile;
+hold on;
+
+yline(1, 'k--', 'No pump');
+
+for j = 1:numel(idxPump)
+    i = idxPump(j);
+    plot(freq, abs(HnoPump{i}), ...
+        'Color', colors(j,:), ...
+        'DisplayName', sprintf('%g ps', delay(i)));
+end
+
+xlabel('Frequency (THz)');
+ylabel('|E / E_{no pump}|');
+title('Amp / no pump');
+grid on;
+legend('Location','eastoutside');
+
+
+% 6. Phase normalized to no pump
+nexttile;
+hold on;
+
+yline(0, 'k--', 'No pump');
+
+for j = 1:numel(idxPump)
+    i = idxPump(j);
+    plot(freq, unwrap(angle(HnoPump{i})), ...
+        'Color', colors(j,:), ...
+        'DisplayName', sprintf('%g ps', delay(i)));
+end
+
+xlabel('Frequency (THz)');
+ylabel('Phase (rad)');
+title('Phase / no pump');
+grid on;
+legend('Location','eastoutside');
 
 
 %% 7. Peak-to-peak amplitude vs delay
@@ -310,3 +317,489 @@ title('Integrated TT intensity');
 grid on;
 
 sgtitle('TDS data overview');
+
+
+
+
+
+%% 9. Interactive transmission vs delay
+
+% Prepare transmission matrices
+Tref = cat(2, Href{idxPump});
+TnoPump = cat(2, HnoPump{idxPump});
+
+Tbaseline = SnoPump ./ Sref;
+
+% Figure
+fig = uifigure('Name', 'Transmission vs delay', ...
+    'Position', [100 100 1200 700]);
+
+axSpec = uiaxes(fig, 'Position', [70 310 500 340]);
+axDelay = uiaxes(fig, 'Position', [650 310 500 340]);
+
+% Frequency slider
+uilabel(fig, 'Position', [70 255 250 22], ...
+    'Text', 'Central frequency (THz)');
+
+fmin = min(freq);
+fmax = max(freq);
+
+fTicks = ceil(fmin/0.5)*0.5 : 0.5 : floor(fmax/0.5)*0.5;
+fMinor = ceil(fmin/0.1)*0.1 : 0.1 : floor(fmax/0.1)*0.1;
+
+fSlider = uislider(fig, ...
+    'Position', [70 235 470 3], ...
+    'Limits', [fmin fmax], ...
+    'Value', min(max(1, fmin), fmax), ...
+    'MajorTicks', fTicks, ...
+    'MinorTicks', fMinor);
+
+% Bandwidth slider
+uilabel(fig, 'Position', [70 175 250 22], ...
+    'Text', 'Averaging bandwidth (THz)');
+
+bwMax = fmax - fmin;
+
+bwTicks = 0:0.5:bwMax;
+bwMinor = 0:0.1:bwMax;
+
+bwSlider = uislider(fig, ...
+    'Position', [70 155 470 3], ...
+    'Limits', [0 bwMax], ...
+    'Value', min(0.1, bwMax), ...
+    'MajorTicks', bwTicks, ...
+    'MinorTicks', bwMinor);
+
+% Normalization
+uilabel(fig, 'Position', [650 255 200 22], ...
+    'Text', 'Normalization');
+
+normMenu = uidropdown(fig, ...
+    'Position', [650 225 210 30], ...
+    'Items', {'Reference', 'No pump'});
+
+% Component
+uilabel(fig, 'Position', [900 255 200 22], ...
+    'Text', 'Component');
+
+compMenu = uidropdown(fig, ...
+    'Position', [900 225 210 30], ...
+    'Items', {'Amplitude', 'Real', 'Imaginary', 'Phase'});
+
+% Value labels
+fLabel = uilabel(fig, ...
+    'Position', [70 275 250 20]);
+
+bwLabel = uilabel(fig, ...
+    'Position', [70 195 250 20]);
+
+% Fit result
+tauLabel = uilabel(fig, ...
+    'Position', [650 155 480 35], ...
+    'Text', '', ...
+    'FontSize', 16, ...
+    'FontWeight', 'bold');
+
+% Update callback
+refresh = @(f0,bw) updateTransmissionDelay( ...
+    axSpec, axDelay, freq, delayPump, ...
+    Tref, TnoPump, Tbaseline, ...
+    f0, bw, normMenu.Value, compMenu.Value, ...
+    fLabel, bwLabel, tauLabel);
+
+% Continuous updates while dragging
+fSlider.ValueChangingFcn = @(~,event) ...
+    refresh(round(event.Value,2), round(bwSlider.Value,2));
+
+bwSlider.ValueChangingFcn = @(~,event) ...
+    refresh(round(fSlider.Value,2), round(event.Value,2));
+
+% Snap sliders to 0.01 THz after release
+fSlider.ValueChangedFcn = @(src,~) ...
+    snapAndRefresh(src, 0.01, fSlider, bwSlider, refresh);
+
+bwSlider.ValueChangedFcn = @(src,~) ...
+    snapAndRefresh(src, 0.01, fSlider, bwSlider, refresh);
+
+% Dropdown callbacks
+normMenu.ValueChangedFcn = @(~,~) ...
+    refresh(fSlider.Value, bwSlider.Value);
+
+compMenu.ValueChangedFcn = @(~,~) ...
+    refresh(fSlider.Value, bwSlider.Value);
+
+% Initial plot
+refresh(fSlider.Value, bwSlider.Value);
+
+
+%% 10. Relaxation time vs frequency
+
+% Settings
+normalization = 'No pump';  % 'Reference' or 'No pump'
+
+bandwidths = [0 0.1 0.2 0.5];  % THz
+minR2 = 0.8;                   % Minimum fit quality
+fitStart = 0;                   % Minimum delay for fitting (ps)
+
+% Select normalization
+switch normalization
+    case 'Reference'
+        T = cat(2, Href{idxPump});
+    case 'No pump'
+        T = cat(2, HnoPump{idxPump});
+end
+
+% Frequency and delay arrays
+f = freq(:);
+t = delayPump(:);
+
+nf = numel(f);
+nb = numel(bandwidths);
+
+% Output matrices: frequency x bandwidth
+tauAmp = NaN(nf, nb);
+tauPhase = NaN(nf, nb);
+
+R2Amp = NaN(nf, nb);
+R2Phase = NaN(nf, nb);
+
+% Fit range
+fitMask = t >= fitStart;
+
+% Calculate tau(f)
+for b = 1:nb
+
+    bw = bandwidths(b);
+
+    for k = 1:nf
+
+        f0 = f(k);
+
+        % Frequency averaging window
+        mask = abs(f - f0) <= bw/2;
+
+        if ~any(mask)
+            [~, nearest] = min(abs(f-f0));
+            mask(nearest) = true;
+        end
+
+        % Amplitude averaged over frequency
+        amp = mean(abs(T(mask,:)), 1).';
+
+        % Phase of complex-averaged transmission
+        phase = unwrap(angle(mean(T(mask,:), 1))).';
+
+        % Fit amplitude
+        [tauAmp(k,b), R2Amp(k,b)] = ...
+            fitDecay(t(fitMask), amp(fitMask), minR2);
+
+        % Fit phase
+        [tauPhase(k,b), R2Phase(k,b)] = ...
+            fitDecay(t(fitMask), phase(fitMask), minR2);
+    end
+end
+
+%% Plot results
+
+figure('Name', 'Relaxation time vs frequency', ...
+       'Color', 'w');
+
+tiledlayout(2,1, 'TileSpacing', 'compact');
+
+colors = lines(nb);
+
+% Amplitude
+nexttile;
+hold on;
+
+for b = 1:nb
+    valid = isfinite(tauAmp(:,b));
+    plot(f(valid), tauAmp(valid,b), 'o-', ...
+        'Color', colors(b,:), ...
+        'LineWidth', 1.5, ...
+        'DisplayName', sprintf('BW = %g THz', bandwidths(b)));
+end
+
+ylim([0,4]);
+xlabel('Frequency (THz)');
+ylabel('\tau (ps)');
+title('Amplitude relaxation time');
+legend('Location', 'best');
+grid on;
+
+% Phase
+nexttile;
+hold on;
+
+for b = 1:nb
+    valid = isfinite(tauPhase(:,b));
+    plot(f(valid), tauPhase(valid,b), 'o-', ...)
+        'Color', colors(b,:), ...
+        'LineWidth', 1.5, ...
+        'DisplayName', sprintf('BW = %g THz', bandwidths(b)));
+end
+
+ylim([0,4]);
+xlabel('Frequency (THz)');
+ylabel('\tau (ps)');
+title('Phase relaxation time');
+legend('Location', 'best');
+grid on;
+
+sgtitle(sprintf('Normalization: %s', normalization));
+
+
+function [tau, R2] = fitDecay(t, y, minR2)
+
+    tau = NaN;
+    R2 = NaN;
+
+    % Remove invalid values
+    valid = isfinite(t) & isfinite(y);
+    t = t(valid);
+    y = y(valid);
+
+    if numel(t) < 4
+        return;
+    end
+
+    % Sort by delay
+    [t, order] = sort(t);
+    y = y(order);
+
+    % Normalize data for numerical stability
+    scale = max(y) - min(y);
+
+    if scale < 1e-10 * max(1, max(abs(y)))
+        return;
+    end
+
+    y0 = y(end);
+    yn = (y - y0) / scale;
+
+    % Initial guesses
+    tau0 = (max(t) - min(t))/3;
+    A0 = yn(1);
+
+    p0 = [A0, log(tau0), 0];
+
+    % Model: A*exp(-t/tau)+B
+    model = @(p,x) ...
+        p(1)*exp(-x./exp(p(2))) + p(3);
+
+    objective = @(p) ...
+        sum((model(p,t-t(1)) - yn).^2);
+
+    options = optimset( ...
+        'Display', 'off', ...
+        'MaxIter', 2000, ...
+        'MaxFunEvals', 5000);
+
+    % Fit
+    p = fminsearch(objective, p0, options);
+
+    tauFit = exp(p(2));
+
+    if ~isfinite(tauFit) || tauFit <= 0
+        return;
+    end
+
+    % Goodness of fit
+    yFit = model(p,t-t(1));
+
+    SSE = sum((yn-yFit).^2);
+    SST = sum((yn-mean(yn)).^2);
+
+    R2 = 1 - SSE/SST;
+
+    % Reject poor fits
+    if isfinite(R2) && R2 >= minR2
+        tau = tauFit;
+    end
+
+end
+
+
+function updateTransmissionDelay( ...
+    axSpec, axDelay, freq, delay, ...
+    Tref, TnoPump, Tbaseline, ...
+    f0, bw, normalization, component, ...
+    fLabel, bwLabel, tauLabel)
+
+    % Normalization
+    switch normalization
+        case 'Reference'
+            T = Tref;
+            base = Tbaseline;
+        case 'No pump'
+            T = TnoPump;
+            base = ones(size(freq));
+    end
+
+    % Frequency window
+    mask = abs(freq - f0) <= bw/2;
+
+    if ~any(mask)
+        [~, k] = min(abs(freq - f0));
+        mask(k) = true;
+    end
+
+    % Spectral component
+    switch component
+
+        case 'Amplitude'
+            spectrum = mean(abs(T), 2);
+            response = mean(abs(T(mask,:)), 1);
+            baseline = mean(abs(base(mask)));
+            ylabelText = '|T|';
+
+        case 'Real'
+            spectrum = real(mean(T, 2));
+            response = real(mean(T(mask,:), 1));
+            baseline = real(mean(base(mask)));
+            ylabelText = 'Re(T)';
+
+        case 'Imaginary'
+            spectrum = imag(mean(T, 2));
+            response = imag(mean(T(mask,:), 1));
+            baseline = imag(mean(base(mask)));
+            ylabelText = 'Im(T)';
+
+        case 'Phase'
+            spectrum = angle(mean(T, 2));
+            response = angle(mean(T(mask,:), 1));
+            baseline = angle(mean(base(mask)));
+            ylabelText = 'Phase (rad)';
+    end
+
+    %% Spectrum
+
+    cla(axSpec);
+    hold(axSpec, 'on');
+
+    plot(axSpec, freq, spectrum, ...
+        'k', 'LineWidth', 1.5);
+
+    xline(axSpec, f0-bw/2, 'r--');
+    xline(axSpec, f0+bw/2, 'r--');
+    xline(axSpec, f0, 'r-');
+
+    xlabel(axSpec, 'Frequency (THz)');
+    ylabel(axSpec, ylabelText);
+    title(axSpec, 'Transmission spectrum');
+    grid(axSpec, 'on');
+
+    %% Response vs delay
+
+    cla(axDelay);
+    hold(axDelay, 'on');
+
+    plot(axDelay, delay, response, ...
+        'o-', 'LineWidth', 1.5, ...
+        'DisplayName', 'Data');
+
+    yline(axDelay, baseline, 'k--', ...
+        'DisplayName', 'No pump');
+
+    %% Exponential fit: A*exp(-t/tau)+B
+
+    % Fit only nonnegative delays
+    fitMask = delay >= 0 & isfinite(response);
+
+    x = delay(fitMask);
+    y = response(fitMask);
+
+    tauLabel.Text = 'Fit unavailable';
+
+    if numel(x) >= 4 && ...
+            max(y)-min(y) > 1e-8*max(abs(y))
+
+        % Initial guesses
+        A0 = y(1) - y(end);
+        B0 = y(end);
+        tau0 = (max(x)-min(x))/3;
+
+        % Normalize signal for numerical stability
+        scale = max(abs(y));
+
+        % Fit parameters: [A/scale, log(tau), B/scale]
+        p0 = [A0/scale, log(tau0), B0/scale];
+
+        model = @(p,t) ...
+            p(1)*exp(-t./exp(p(2))) + p(3);
+
+        objective = @(p) ...
+            sum((model(p,x)-y/scale).^2);
+
+        options = optimset( ...
+            'Display', 'off', ...
+            'MaxIter', 2000, ...
+            'MaxFunEvals', 5000);
+
+        p = fminsearch(objective, p0, options);
+
+        A = p(1)*scale;
+        tau = exp(p(2));
+        B = p(3)*scale;
+
+        if isfinite(tau) && tau > 0
+
+            % Smooth fitted curve
+            tFit = linspace(min(x), max(x), 300);
+            yFit = A*exp(-tFit/tau) + B;
+
+            plot(axDelay, tFit, yFit, 'r-', ...
+                'LineWidth', 2, ...
+                'DisplayName', 'Exponential fit');
+
+            % Fit quality
+            yPred = A*exp(-x/tau) + B;
+            SSE = sum((y-yPred).^2);
+            SST = sum((y-mean(y)).^2);
+            R2 = 1-SSE/SST;
+
+            tauLabel.Text = sprintf( ...
+                'tau = %.3f ps     R^2 = %.4f', ...
+                tau, R2);
+
+            text(axDelay, 0.04, 0.95, ...
+                sprintf('\\tau = %.3f ps', tau), ...
+                'Units', 'normalized', ...
+                'VerticalAlignment', 'top', ...
+                'FontSize', 13, ...
+                'FontWeight', 'bold');
+        end
+    end
+
+    %% Formatting
+
+    xlabel(axDelay, 'Pump-probe delay (ps)');
+    ylabel(axDelay, ylabelText);
+
+    title(axDelay, sprintf( ...
+        'f = %.2f THz, BW = %.2f THz', f0, bw));
+
+    grid(axDelay, 'on');
+    legend(axDelay, 'Location', 'best');
+
+    fLabel.Text = sprintf('f = %.2f THz', f0);
+    bwLabel.Text = sprintf('Bandwidth = %.2f THz', bw);
+
+end
+
+
+function snapAndRefresh(src, step, fSlider, bwSlider, refresh)
+
+    % Snap to exact increments
+    value = round(src.Value/step)*step;
+
+    % Respect slider limits
+    value = max(src.Limits(1), min(src.Limits(2), value));
+
+    src.Value = value;
+
+    refresh(fSlider.Value, bwSlider.Value);
+
+end
+
+

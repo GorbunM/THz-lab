@@ -1,6 +1,6 @@
 %% Replace decimal commas with dots
 
-curdir = "C:\Users\mgorbun\Documents\MATLAB\pump-probe\2026-10-15 670 nm\perpendicular";
+curdir = "C:\Users\mgorbun\Documents\MATLAB\2026-10-30 cnt90 1113 nm repeat with less gap\2026-10-30 cnt90 1113 nm repeat with less gap\perpendicular 1113 nm";
 
 files = dir(fullfile(curdir, '*.dat'));
 
